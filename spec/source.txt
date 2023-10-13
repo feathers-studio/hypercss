@@ -1,0 +1,1 @@
+https://drafts.csswg.org/css-syntax as on 2023/10/13
