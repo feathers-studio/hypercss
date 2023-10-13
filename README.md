@@ -5,13 +5,13 @@ It is based on [Tab Atkins's original parser](https://github.com/tabatkins/parse
 
 It's also heavily inspired by Tommy Hodgins's excellent video:
 
+#### [Why it's important to parse CSS correctly / Tommy Hodgins ("Innovati")](http://youtu.be/1kHuXQhbeN0)
+
 <a href=http://youtu.be/1kHuXQhbeN0>
 	<img width=400 src=https://i.ytimg.com/vi/1kHuXQhbeN0/maxresdefault.jpg alt="Video: Why it's important to parse CSS correctly">
 </a>
 
-<a href=http://youtu.be/1kHuXQhbeN0>
-Why it's important to parse CSS correctly | Tommy Hodgins ("Innovati")
-</a>
+<br />
 
 Its structure and coding style are instead meant to be very close to the spec,
 so that it's easy to verify that the code matches the spec (and vice versa)
