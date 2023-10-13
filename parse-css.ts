@@ -73,7 +73,7 @@ class InvalidCharacterError extends Error {
 	}
 }
 
-// https://drafts.csswg.org/css-syntax/#input-preprocessing
+/** @see https://drafts.csswg.org/css-syntax/#input-preprocessing  */
 function preprocess(str: string) {
 	// Turn a string into an array of code points,
 	// following the preprocessing cleanup rules.
@@ -102,7 +102,7 @@ function asciiCaselessMatch(s1: string, s2: string) {
 	return s1.toLowerCase() == s2.toLowerCase();
 }
 
-// https://drafts.csswg.org/css-syntax/#tokenization
+/** @see https://drafts.csswg.org/css-syntax/#tokenization  */
 function tokenize(str: string) {
 	const codepoints = preprocess(str);
 	let i = -1;
@@ -166,7 +166,7 @@ function tokenize(str: string) {
 		return true;
 	}
 
-	// https://drafts.csswg.org/css-syntax/#consume-token
+	/** @see https://drafts.csswg.org/css-syntax/#consume-token  */
 	function consumeAToken() {
 		consumeComments();
 		consume();
@@ -257,7 +257,7 @@ function tokenize(str: string) {
 		else return new DelimToken(code);
 	}
 
-	// https://drafts.csswg.org/css-syntax/#consume-comment
+	/** @see https://drafts.csswg.org/css-syntax/#consume-comment  */
 	function consumeComments() {
 		while (next(1) == 0x2f && next(2) == 0x2a) {
 			consume(2);
@@ -274,7 +274,7 @@ function tokenize(str: string) {
 		}
 	}
 
-	// https://drafts.csswg.org/css-syntax/#consume-numeric-token
+	/** @see https://drafts.csswg.org/css-syntax/#consume-numeric-token  */
 	function consumeANumericToken() {
 		var { value, isInteger, sign } = consumeANumber();
 		if (wouldStartAnIdentifier(next(1), next(2), next(3))) {
@@ -288,7 +288,7 @@ function tokenize(str: string) {
 		}
 	}
 
-	// https://drafts.csswg.org/css-syntax/#consume-ident-like-token
+	/** @see https://drafts.csswg.org/css-syntax/#consume-ident-like-token  */
 	function consumeAnIdentlikeToken() {
 		var str = consumeAName();
 		if (str.toLowerCase() == "url" && next() == 0x28) {
@@ -309,7 +309,7 @@ function tokenize(str: string) {
 		}
 	}
 
-	// https://drafts.csswg.org/css-syntax/#consume-string-token
+	/** @see https://drafts.csswg.org/css-syntax/#consume-string-token  */
 	function consumeAStringToken(endingCodePoint = code) {
 		var string = "";
 		while (consume()) {
@@ -333,7 +333,7 @@ function tokenize(str: string) {
 		}
 	}
 
-	// https://drafts.csswg.org/css-syntax/#consume-url-token
+	/** @see https://drafts.csswg.org/css-syntax/#consume-url-token  */
 	function consumeAURLToken() {
 		var token = new URLToken("");
 		while (whitespace(next())) consume();
@@ -368,7 +368,7 @@ function tokenize(str: string) {
 		}
 	}
 
-	// https://drafts.csswg.org/css-syntax/#consume-escaped-code-point
+	/** @see https://drafts.csswg.org/css-syntax/#consume-escaped-code-point  */
 	function consumeEscape() {
 		// Assume the the current character is the \
 		// and the next code point is not a newline.
@@ -402,7 +402,7 @@ function tokenize(str: string) {
 		}
 	}
 
-	// https://drafts.csswg.org/css-syntax/#starts-with-a-valid-escape
+	/** @see https://drafts.csswg.org/css-syntax/#starts-with-a-valid-escape  */
 	function areAValidEscape(c1: number, c2: number) {
 		if (c1 != 0x5c) return false;
 		if (newline(c2)) return false;
@@ -412,7 +412,7 @@ function tokenize(str: string) {
 		return areAValidEscape(code, next());
 	}
 
-	// https://drafts.csswg.org/css-syntax/#would-start-an-identifier
+	/** @see https://drafts.csswg.org/css-syntax/#would-start-an-identifier  */
 	function wouldStartAnIdentifier(c1: number, c2: number, c3: number) {
 		if (c1 == 0x2d) {
 			return namestartchar(c2) || c2 == 0x2d || areAValidEscape(c2, c3);
@@ -429,7 +429,7 @@ function tokenize(str: string) {
 		return wouldStartAnIdentifier(code, next(1), next(2));
 	}
 
-	// https://drafts.csswg.org/css-syntax/#starts-with-a-number
+	/** @see https://drafts.csswg.org/css-syntax/#starts-with-a-number  */
 	function wouldStartANumber(c1: number, c2: number, c3: number) {
 		if (c1 == 0x2b || c1 == 0x2d) {
 			if (digit(c2)) return true;
@@ -448,12 +448,13 @@ function tokenize(str: string) {
 	function startsWithANumber() {
 		return wouldStartANumber(code, next(1), next(2));
 	}
-	// https://drafts.csswg.org/css-syntax/#starts-a-unicode-range
+	/** @see https://drafts.csswg.org/css-syntax/#starts-a-unicode-range  */
 	function wouldStartAUnicodeRange(c1: number, c2: number, c3: number) {
 		if (c1 == 0x55 || c1 == 0x75) if (c2 == 0x2b) if (c3 == 0x3f || hexdigit(c3)) return true;
 		return false;
 	}
 
+	/** @see https://drafts.csswg.org/css-syntax/#consume-name  */
 	function consumeAName() {
 		let result = "";
 		while (consume()) {
@@ -470,7 +471,7 @@ function tokenize(str: string) {
 		return result; // unreachable
 	}
 
-	// https://drafts.csswg.org/css-syntax/#consume-number
+	/** @see https://drafts.csswg.org/css-syntax/#consume-number  */
 	function consumeANumber() {
 		let isInteger = true;
 		let sign;
@@ -517,7 +518,7 @@ function tokenize(str: string) {
 		return { value, isInteger, sign };
 	}
 
-	// https://drafts.csswg.org/css-syntax/#consume-unicode-range-token
+	/** @see https://drafts.csswg.org/css-syntax/#consume-unicode-range-token  */
 	function consumeAUnicodeRangeToken() {
 		let firstSegment = "";
 		let start = "";
@@ -551,6 +552,7 @@ function tokenize(str: string) {
 		return new UnicodeRangeToken(start, start);
 	}
 
+	/** @see https://drafts.csswg.org/css-syntax/#consume-remnants-of-bad-url  */
 	function consumeTheRemnantsOfABadURL() {
 		while (consume()) {
 			if (code == 0x29 || eof()) {
@@ -639,7 +641,7 @@ class CDCToken extends CSSParserToken {
 	}
 }
 
-// https://drafts.csswg.org/css-syntax/#typedef-unicode-range-token
+/** @see https://drafts.csswg.org/css-syntax/#typedef-unicode-range-token  */
 class UnicodeRangeToken extends CSSParserToken {
 	constructor(public start: string, public end: string) {
 		super("UNICODE-RANGE");
@@ -999,7 +1001,6 @@ function formatNumber(num: number, sign?: string) {
 	return (sign == "+" ? "+" : "") + String(num);
 }
 
-// Exportation.
 export {
 	AtKeywordToken,
 	BadStringToken,
@@ -1031,57 +1032,58 @@ export {
 	WhitespaceToken,
 };
 
+/** @see https://drafts.csswg.org/css-syntax/#parser-definitions  */
 class TokenStream {
-	public i: number;
-	public marks: number[];
+	public index: number;
+	public markedIndexes: number[];
 	constructor(public tokens: CSSParserToken[]) {
 		// Assume that tokens is an array.
-		this.i = 0;
-		this.marks = [];
+		this.index = 0;
+		this.markedIndexes = [];
 	}
 	nextToken() {
-		if (this.i < this.tokens.length) return this.tokens[this.i];
+		if (this.index < this.tokens.length) return this.tokens[this.index];
 		return new EOFToken();
 	}
 	empty() {
-		return this.i >= this.tokens.length;
+		return this.index >= this.tokens.length;
 	}
-	consumeToken() {
+	consumeAToken() {
 		const tok = this.nextToken();
-		this.i++;
+		this.index++;
 		return tok;
 	}
-	discardToken() {
-		this.i++;
+	discardAToken() {
+		this.index++;
 	}
 	mark() {
-		this.marks.push(this.i);
+		this.markedIndexes.push(this.index);
 		return this;
 	}
-	restoreMark() {
-		if (this.marks.length) {
-			this.i = this.marks.pop()!;
+	restoreAMark() {
+		if (this.markedIndexes.length) {
+			this.index = this.markedIndexes.pop()!;
 			return this;
 		}
 		throw new Error("No marks to restore.");
 	}
-	discardMark() {
-		if (this.marks.length) {
-			this.marks.pop();
+	discardAMark() {
+		if (this.markedIndexes.length) {
+			this.markedIndexes.pop();
 			return this;
 		}
 		throw new Error("No marks to restore.");
 	}
 	discardWhitespace() {
 		while (this.nextToken() instanceof WhitespaceToken) {
-			this.discardToken();
+			this.discardAToken();
 		}
 		return this;
 	}
 }
 
 function parseerror(s: TokenStream, msg: string) {
-	console.log("Parse error at token " + s.i + ": " + s.tokens[s.i] + ".\n" + msg);
+	console.log("Parse error at token " + s.index + ": " + s.tokens[s.index] + ".\n" + msg);
 	return true;
 }
 
@@ -1090,11 +1092,11 @@ function consumeAStylesheetsContents(s: TokenStream) {
 	while (1) {
 		const token = s.nextToken();
 		if (token instanceof WhitespaceToken) {
-			s.discardToken();
+			s.discardAToken();
 		} else if (token instanceof EOFToken) {
 			return rules;
 		} else if (token instanceof CDOToken || token instanceof CDCToken) {
-			s.discardToken();
+			s.discardAToken();
 		} else if (token instanceof AtKeywordToken) {
 			const rule = consumeAnAtRule(s);
 			if (rule) rules.push(rule);
@@ -1108,7 +1110,7 @@ function consumeAStylesheetsContents(s: TokenStream) {
 }
 
 function consumeAnAtRule(s: TokenStream, nested = false) {
-	const token = s.consumeToken();
+	const token = s.consumeAToken();
 	if (!(token instanceof AtKeywordToken)) {
 		throw new Error("consumeAnAtRule() called with an invalid token stream state.");
 	}
@@ -1116,13 +1118,13 @@ function consumeAnAtRule(s: TokenStream, nested = false) {
 	while (1) {
 		const token = s.nextToken();
 		if (token instanceof SemicolonToken || token instanceof EOFToken) {
-			s.discardToken();
+			s.discardAToken();
 			return filterValid(rule);
 		} else if (token instanceof CloseCurlyToken) {
 			if (nested) return filterValid(rule);
 			else {
 				parseerror(s, "Hit an unmatched } in the prelude of an at-rule.");
-				rule.prelude.push(s.consumeToken());
+				rule.prelude.push(s.consumeAToken());
 			}
 		} else if (token instanceof OpenCurlyToken) {
 			[rule.declarations, rule.rules] = consumeABlock(s);
@@ -1144,7 +1146,7 @@ function consumeAQualifiedRule(s: TokenStream, nested = false, stopToken = EOFTo
 			parseerror(s, "Hit an unmatched } in the prelude of a qualified rule.");
 			if (nested) return;
 			else {
-				rule.prelude.push(s.consumeToken());
+				rule.prelude.push(s.consumeAToken());
 			}
 		} else if (token instanceof OpenCurlyToken) {
 			if (looksLikeACustomProperty(rule.prelude)) {
@@ -1179,9 +1181,9 @@ function consumeABlock(s: TokenStream) {
 	if (!(s.nextToken() instanceof OpenCurlyToken)) {
 		throw new Error("consumeABlock() called with an invalid token stream state.");
 	}
-	s.discardToken();
+	s.discardAToken();
 	const [decls, rules] = consumeABlocksContents(s);
-	s.discardToken();
+	s.discardAToken();
 	return [decls, rules];
 }
 
@@ -1191,7 +1193,7 @@ function consumeABlocksContents(s: TokenStream): [decls: CSSParserRule[], rules:
 	while (1) {
 		const token = s.nextToken();
 		if (token instanceof WhitespaceToken || token instanceof SemicolonToken) {
-			s.discardToken();
+			s.discardAToken();
 		} else if (token instanceof EOFToken || token instanceof CloseCurlyToken) {
 			return [decls, rules];
 		} else if (token instanceof AtKeywordToken) {
@@ -1202,10 +1204,10 @@ function consumeABlocksContents(s: TokenStream): [decls: CSSParserRule[], rules:
 			const decl = consumeADeclaration(s, true);
 			if (decl) {
 				decls.push(decl);
-				s.discardMark();
+				s.discardAMark();
 				continue;
 			}
-			s.restoreMark();
+			s.restoreAMark();
 			const rule = consumeAQualifiedRule(s, true, SemicolonToken);
 			if (rule) rules.push(rule);
 		}
@@ -1216,14 +1218,14 @@ function consumeABlocksContents(s: TokenStream): [decls: CSSParserRule[], rules:
 function consumeADeclaration(s: TokenStream, nested = false) {
 	let decl;
 	if (s.nextToken() instanceof IdentToken) {
-		decl = new Declaration((s.consumeToken() as IdentToken).value);
+		decl = new Declaration((s.consumeAToken() as IdentToken).value);
 	} else {
 		consumeTheRemnantsOfABadDeclaration(s, nested);
 		return;
 	}
 	s.discardWhitespace();
 	if (s.nextToken() instanceof ColonToken) {
-		s.discardToken();
+		s.discardAToken();
 	} else {
 		consumeTheRemnantsOfABadDeclaration(s, nested);
 		return;
@@ -1259,11 +1261,11 @@ function consumeTheRemnantsOfABadDeclaration(s: TokenStream, nested: boolean) {
 	while (1) {
 		const token = s.nextToken();
 		if (token instanceof EOFToken || token instanceof SemicolonToken) {
-			s.discardToken();
+			s.discardAToken();
 			return;
 		} else if (token instanceof CloseCurlyToken) {
 			if (nested) return;
-			else s.discardToken();
+			else s.discardAToken();
 		} else {
 			consumeAComponentValue(s);
 		}
@@ -1280,7 +1282,7 @@ function consumeAListOfComponentValues(s: TokenStream, nested = false, stopToken
 			if (nested) return values;
 			else {
 				parseerror(s, "Hit an unmatched } in a declaration value.");
-				values.push(s.consumeToken());
+				values.push(s.consumeAToken());
 			}
 		} else {
 			values.push(consumeAComponentValue(s));
@@ -1296,9 +1298,10 @@ function consumeAComponentValue(s: TokenStream) {
 		return consumeASimpleBlock(s);
 	}
 	if (token instanceof FunctionToken) return consumeAFunction(s);
-	return s.consumeToken();
+	return s.consumeAToken();
 }
 
+/** @see https://drafts.csswg.org/css-syntax/#consume-a-simple-block  */
 function consumeASimpleBlock(s: TokenStream): SimpleBlock {
 	// @ts-expect-error quack-checking
 	if (!s.nextToken().mirror) {
@@ -1306,7 +1309,7 @@ function consumeASimpleBlock(s: TokenStream): SimpleBlock {
 	}
 	const start = s.nextToken();
 	const block = new SimpleBlock(start.toSource() as keyof typeof mirror);
-	s.discardToken();
+	s.discardAToken();
 	while (1) {
 		const token = s.nextToken();
 		if (
@@ -1314,7 +1317,7 @@ function consumeASimpleBlock(s: TokenStream): SimpleBlock {
 			// @ts-expect-error quack-checking
 			token instanceof start.mirror
 		) {
-			s.discardToken();
+			s.discardAToken();
 			return block;
 		} else {
 			block.value.push(consumeAComponentValue(s));
@@ -1324,16 +1327,17 @@ function consumeASimpleBlock(s: TokenStream): SimpleBlock {
 	return block; // unreachable
 }
 
+/** @see https://drafts.csswg.org/css-syntax/#consume-a-function  */
 function consumeAFunction(s: TokenStream): Func {
 	if (!(s.nextToken() instanceof FunctionToken)) {
 		throw new Error("consumeAFunction() called with an invalid token stream state.");
 	}
 	// safe assertion, verified above
-	const func = new Func((s.consumeToken() as FunctionToken).value);
+	const func = new Func((s.consumeAToken() as FunctionToken).value);
 	while (1) {
 		const token = s.nextToken();
 		if (token instanceof EOFToken || token instanceof CloseParenToken) {
-			s.discardToken();
+			s.discardAToken();
 			return func;
 		} else {
 			func.value.push(consumeAComponentValue(s));
@@ -1384,6 +1388,7 @@ function normalizeInput(input: string | TokenStream | CSSParserToken[]) {
 	else throw SyntaxError(String(input));
 }
 
+/** @see https://drafts.csswg.org/css-syntax/#parse-a-stylesheet  */
 function parseAStylesheet(s: string | TokenStream) {
 	s = normalizeInput(s);
 	var sheet = new Stylesheet();
@@ -1391,16 +1396,19 @@ function parseAStylesheet(s: string | TokenStream) {
 	return sheet;
 }
 
+/** @see https://drafts.csswg.org/css-syntax/#parse-stylesheet-contents  */
 function parseAStylesheetsContents(s: TokenStream) {
 	s = normalizeInput(s);
 	return consumeAStylesheetsContents(s);
 }
 
+/** @see https://drafts.csswg.org/css-syntax/#parse-block-contents  */
 function parseABlocksContents(s: TokenStream) {
 	s = normalizeInput(s);
 	return consumeABlocksContents(s);
 }
 
+/** @see https://drafts.csswg.org/css-syntax/#parse-rule  */
 function parseARule(s: TokenStream) {
 	s = normalizeInput(s);
 	let rule;
@@ -1417,6 +1425,7 @@ function parseARule(s: TokenStream) {
 	throw SyntaxError();
 }
 
+/** @see https://drafts.csswg.org/css-syntax/#parse-declaration  */
 function parseADeclaration(s: TokenStream) {
 	s = normalizeInput(s);
 	s.discardWhitespace();
@@ -1425,6 +1434,7 @@ function parseADeclaration(s: TokenStream) {
 	throw SyntaxError();
 }
 
+/** @see https://drafts.csswg.org/css-syntax/#parse-component-value  */
 function parseAComponentValue(s: TokenStream) {
 	s = normalizeInput(s);
 	s.discardWhitespace();
@@ -1435,17 +1445,19 @@ function parseAComponentValue(s: TokenStream) {
 	throw SyntaxError();
 }
 
+/** @see https://drafts.csswg.org/css-syntax/#parse-list-of-component-values  */
 function parseAListOfComponentValues(s: TokenStream) {
 	s = normalizeInput(s);
 	return consumeAListOfComponentValues(s);
 }
 
+/** @see https://drafts.csswg.org/css-syntax/#parse-comma-separated-list-of-component-values  */
 function parseACommaSeparatedListOfComponentValues(s: TokenStream) {
 	s = normalizeInput(s);
 	const groups = [];
 	while (!s.empty()) {
 		groups.push(consumeAListOfComponentValues(s, false, CommaToken));
-		s.discardToken();
+		s.discardAToken();
 	}
 	return groups;
 }
@@ -1460,6 +1472,7 @@ class CSSParserRule<Type extends string = string> {
 	}
 }
 
+/** @see https://drafts.csswg.org/css-syntax/#css-stylesheet  */
 class Stylesheet extends CSSParserRule {
 	public rules: CSSParserRule[] = [];
 	constructor() {
@@ -1479,6 +1492,7 @@ class Stylesheet extends CSSParserRule {
 	}
 }
 
+/** @see https://drafts.csswg.org/css-syntax/#at-rule  */
 class AtRule extends CSSParserRule<"AT-RULE"> {
 	public prelude: CSSParserToken[] = [];
 	public declarations: CSSParserRule[] = [];
@@ -1496,7 +1510,7 @@ class AtRule extends CSSParserRule<"AT-RULE"> {
 		};
 	}
 	toSource(indent = 0) {
-		let s = printIndent(indent) + "@" + escapeIdent(this.name);
+		let s = getIndent(indent) + "@" + escapeIdent(this.name);
 		s += this.prelude.map(x => x.toSource()).join("");
 		if (this.declarations == null) {
 			s += ";\n";
@@ -1509,11 +1523,12 @@ class AtRule extends CSSParserRule<"AT-RULE"> {
 		if (this.rules?.length) {
 			s += this.rules.map(x => x.toSource(indent + 1)).join("\n") + "\n";
 		}
-		s += printIndent(indent) + "}";
+		s += getIndent(indent) + "}";
 		return s;
 	}
 }
 
+/** @see https://drafts.csswg.org/css-syntax/#qualified-rule  */
 class QualifiedRule extends CSSParserRule<"QUALIFIED-RULE"> {
 	public prelude: CSSParserToken[] = [];
 	public declarations: CSSParserRule[] = [];
@@ -1530,7 +1545,7 @@ class QualifiedRule extends CSSParserRule<"QUALIFIED-RULE"> {
 		};
 	}
 	toSource(indent = 0) {
-		let s = printIndent(indent);
+		let s = getIndent(indent);
 		s += this.prelude.map(x => x.toSource()).join("");
 		s += "{\n";
 		if (this.declarations.length) {
@@ -1539,16 +1554,20 @@ class QualifiedRule extends CSSParserRule<"QUALIFIED-RULE"> {
 		if (this.rules.length) {
 			s += this.rules.map(x => x.toSource(indent + 1)).join("\n") + "\n";
 		}
-		s += printIndent(indent) + "}";
+		s += getIndent(indent) + "}";
 		return s;
 	}
 }
 
-// https://drafts.csswg.org/css-syntax/#preserved-tokens
+/** @see https://drafts.csswg.org/css-syntax/#preserved-tokens  */
 type PreservedToken = Exclude<Tokens, FunctionToken | OpenCurlyToken | OpenParenToken | OpenSquareToken>;
 
+/** @see https://drafts.csswg.org/css-syntax/#component-value  */
+type ComponentValue = PreservedToken | Func | SimpleBlock;
+
+/** @see https://drafts.csswg.org/css-syntax/#declaration  */
 class Declaration extends CSSParserRule<"DECLARATION"> {
-	public value: (PreservedToken | Func | SimpleBlock)[] = [];
+	public value: ComponentValue[] = [];
 	public important = false;
 	constructor(public name: string) {
 		super("DECLARATION", name);
@@ -1562,7 +1581,7 @@ class Declaration extends CSSParserRule<"DECLARATION"> {
 		};
 	}
 	toSource(indent = 0) {
-		let s = printIndent(indent) + escapeIdent(this.name) + ": ";
+		let s = getIndent(indent) + escapeIdent(this.name) + ": ";
 		s += this.value.map(x => x.toSource()).join("");
 		if (this.important) {
 			s += "!important";
@@ -1574,6 +1593,7 @@ class Declaration extends CSSParserRule<"DECLARATION"> {
 
 const mirror = { "{": "}", "[": "]", "(": ")" } as const;
 
+/** @see https://drafts.csswg.org/css-syntax/#simple-block  */
 class SimpleBlock extends CSSParserRule {
 	public value: CSSParserRule[] = [];
 	constructor(public name: keyof typeof mirror) {
@@ -1592,6 +1612,7 @@ class SimpleBlock extends CSSParserRule {
 	}
 }
 
+/** @see https://drafts.csswg.org/css-syntax/#function  */
 class Func extends CSSParserRule {
 	public value: CSSParserToken[] = [];
 	constructor(public name: string) {
@@ -1609,11 +1630,10 @@ class Func extends CSSParserRule {
 	}
 }
 
-function printIndent(level: number = 0) {
+function getIndent(level: number = 0) {
 	return "\t".repeat(level);
 }
 
-// Exportation.
 export {
 	AtRule,
 	CSSParserRule,
