@@ -1,38 +1,34 @@
 {
-  "name": "parse-css",
-  "version": "0.1.0",
-  "description": "Standards-based CSS parser, based on the CSS Syntax spec.",
-  "keywords": [
-    "css",
-    "parser"
-  ],
-  "author": "Tab Atkins <jackalmage@gmail.com>",
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/tabatkins/parse-css.git"
-  },
-  "main": "parse-css.js",
-  "homepage": "https://github.com/tabatkins/parse-css",
-  "contributors": [
-    {
-      "name": "Tab Atkins Jr."
-    }
-  ],
-  "bugs": {
-    "url": "https://github.com/tabatkins/parse-css/issues",
-    "email": "jackalmage@gmail.com"
-  },
-  "dependencies": {},
-  "devDependencies": {
-    "ansidiff": "^1.0.0"
-  },
-  "licenses": [
-    {
-      "type": "CC0",
-      "url": "http://github.com/tabatkins/parse-css/raw/master/LICENSE"
-    }
-  ],
-  "scripts": {
-    "test": "node tests.js"
-  }
+	"name": "hypercss",
+	"version": "0.1.0",
+	"description": "Standards-based CSS parser in TypeScript, based on the CSS Syntax spec.",
+	"author": "Muthu Kumar <@MKRhere> (https://mkr.pw)",
+	"main": "index.ts",
+	"keywords": [
+		"css",
+		"parser",
+		"typescript"
+	],
+	"homepage": "https://github.com/feathers-studio/hypercss",
+	"repository": {
+		"type": "git",
+		"url": "git://github.com/feathers-studio/hypercss.git"
+	},
+	"bugs": {
+		"url": "https://github.com/feathers-studio/hypercss/issues"
+	},
+	"licenses": [
+		{
+			"type": "MIT",
+			"url": "http://github.com/feathers-studio/hypercss/raw/master/LICENSE"
+		}
+	],
+	"contributors": [
+		{
+			"name": "Tab Atkins Jr."
+		},
+		{
+			"name": "Muthu Kumar <@MKRhere> (https://mkr.pw)"
+		}
+	]
 }
