@@ -1,5 +1,5 @@
 {
-	"name": "hypercss",
+	"name": "@hyperactive/css",
 	"version": "0.1.0",
 	"description": "Standards-based CSS parser in TypeScript, based on the CSS Syntax spec.",
 	"author": "Muthu Kumar <@MKRhere> (https://mkr.pw)",
