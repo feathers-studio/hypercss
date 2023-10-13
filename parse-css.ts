@@ -243,6 +243,11 @@ function tokenize(str: string) {
 		else if (digit(code)) {
 			reconsume();
 			return consumeANumericToken();
+		} else if (code == 0x55 || code == 0x75) {
+			if (wouldStartAUnicodeRange(code, next(1), next(2))) {
+				reconsume();
+				return consumeAUnicodeRangeToken();
+			}
 			reconsume();
 			return consumeAnIdentlikeToken();
 		} else if (namestartchar(code)) {
@@ -443,6 +448,11 @@ function tokenize(str: string) {
 	function startsWithANumber() {
 		return wouldStartANumber(code, next(1), next(2));
 	}
+	// https://drafts.csswg.org/css-syntax/#starts-a-unicode-range
+	function wouldStartAUnicodeRange(c1: number, c2: number, c3: number) {
+		if (c1 == 0x55 || c1 == 0x75) if (c2 == 0x2b) if (c3 == 0x3f || hexdigit(c3)) return true;
+		return false;
+	}
 
 	function consumeAName() {
 		let result = "";
@@ -456,6 +466,8 @@ function tokenize(str: string) {
 				return result;
 			}
 		}
+
+		return result; // unreachable
 	}
 
 	// https://drafts.csswg.org/css-syntax/#consume-number
@@ -503,6 +515,40 @@ function tokenize(str: string) {
 		if (exponentPart) value = value * Math.pow(10, +exponentPart);
 
 		return { value, isInteger, sign };
+	}
+
+	// https://drafts.csswg.org/css-syntax/#consume-unicode-range-token
+	function consumeAUnicodeRangeToken() {
+		let firstSegment = "";
+		let start = "";
+		let end = "";
+		consume();
+		consume();
+		while (hexdigit(next()) && firstSegment.length <= 6) {
+			consume();
+			firstSegment += String.fromCodePoint(code);
+		}
+		if (firstSegment.length < 6 && next() == 0x3f) {
+			let wildcardLen = 0;
+			while (next() == 0x3f && firstSegment.length <= 6) {
+				consume();
+				wildcardLen++;
+			}
+			start = firstSegment + String.fromCodePoint(0x30).repeat(wildcardLen);
+			end = firstSegment + String.fromCodePoint(0x46).repeat(wildcardLen);
+			return new UnicodeRangeToken(start, end);
+		}
+
+		start = firstSegment;
+		if (next(1) == 0x2d && hexdigit(next(2))) {
+			consume();
+			while (hexdigit(next()) && end.length <= 6) {
+				consume();
+				end += String.fromCodePoint(code);
+			}
+			return new UnicodeRangeToken(start, end);
+		}
+		return new UnicodeRangeToken(start, start);
 	}
 
 	function consumeTheRemnantsOfABadURL() {
@@ -590,6 +636,17 @@ class CDCToken extends CSSParserToken {
 	}
 	toSource() {
 		return "-->";
+	}
+}
+
+// https://drafts.csswg.org/css-syntax/#typedef-unicode-range-token
+class UnicodeRangeToken extends CSSParserToken {
+	constructor(public start: string, public end: string) {
+		super("UNICODE-RANGE");
+	}
+	toSource(): string {
+		if (this.start === this.end) return "U+" + this.start;
+		return `U+${this.start}-${this.end}`;
 	}
 }
 
