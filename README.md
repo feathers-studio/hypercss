@@ -3,16 +3,6 @@
 This project implements a standards-based CSS Parser, fully written in modern TypeScript.
 It is based on [Tab Atkins's original parser](https://github.com/tabatkins/parse-css), which is based on <http://drafts.csswg.org/css-syntax>.
 
-It's also heavily inspired by Tommy Hodgins's excellent video:
-
-#### [Why it's important to parse CSS correctly / Tommy Hodgins ("Innovati")](http://youtu.be/1kHuXQhbeN0)
-
-<a href=http://youtu.be/1kHuXQhbeN0>
-	<img width=400 src=https://i.ytimg.com/vi/1kHuXQhbeN0/maxresdefault.jpg alt="Video: Why it's important to parse CSS correctly">
-</a>
-
-<br />
-
 Its structure and coding style are instead meant to be very close to the spec,
 so that it's easy to verify that the code matches the spec (and vice versa)
 and to make it easy, when the spec changes, to make the same change in the parser.
@@ -56,6 +46,12 @@ and will happily parse any valid CSS syntax.
 This makes it a very useful base to build CSS tools on top of.
 A higher level API may yet be created in the future. It may also be useful to convert this parser into a streaming parser.
 
-Meanwhile,
+#### This library is heavily inspired by Tommy Hodgins's excellent video, [Why it's important to parse CSS correctly](http://youtu.be/1kHuXQhbeN0)
+
+<a href=http://youtu.be/1kHuXQhbeN0>
+	<img width=400 src=https://i.ytimg.com/vi/1kHuXQhbeN0/maxresdefault.jpg alt="Video: Why it's important to parse CSS correctly">
+</a>
+
+For the curious,
 [Tommy Hodgins's YouTube](https://www.youtube.com/@innovati) has several demonstrations
 on how to use a standards-compliant CSS parser.
