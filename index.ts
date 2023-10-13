@@ -64,7 +64,7 @@ function surrogate(code: number) {
 	return between(code, 0xd800, 0xdfff);
 }
 
-var maximumallowedcodepoint = 0x10ffff;
+const maximumallowedcodepoint = 0x10ffff;
 
 class InvalidCharacterError extends Error {
 	constructor(public message: string) {
@@ -78,7 +78,7 @@ function preprocess(str: string) {
 	// Turn a string into an array of code points,
 	// following the preprocessing cleanup rules.
 	const codepoints = [];
-	for (var i = 0; i < str.length; i++) {
+	for (let i = 0; i < str.length; i++) {
 		let code = str.charCodeAt(i);
 		if (code == 0xd && str.charCodeAt(i + 1) == 0xa) {
 			code = 0xa;
@@ -88,8 +88,8 @@ function preprocess(str: string) {
 		if (code == 0x0) code = 0xfffd;
 		if (between(code, 0xd800, 0xdbff) && between(str.charCodeAt(i + 1), 0xdc00, 0xdfff)) {
 			// Decode a surrogate pair into an astral codepoint.
-			var lead = code - 0xd800;
-			var trail = str.charCodeAt(i + 1) - 0xdc00;
+			const lead = code - 0xd800;
+			const trail = str.charCodeAt(i + 1) - 0xdc00;
 			code = Math.pow(2, 16) + lead * Math.pow(2, 10) + trail;
 			i++;
 		}
@@ -110,16 +110,17 @@ function tokenize(str: string) {
 	let code: number;
 
 	// Line number information.
-	var line = 0;
-	var column = 0;
+	let line = 0;
+	let column = 0;
 	// The only use of lastLineLength is in reconsume().
-	var lastLineLength = 0;
+	let lastLineLength = 0;
 	function incrLineno() {
 		line += 1;
 		lastLineLength = column;
 		column = 0;
 	}
-	var locStart = { line: line, column: column };
+
+	const locStart = { line: line, column: column };
 
 	function codepoint(i: number): number {
 		if (i >= codepoints.length) return -1;
@@ -276,7 +277,7 @@ function tokenize(str: string) {
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-numeric-token  */
 	function consumeANumericToken() {
-		var { value, isInteger, sign } = consumeANumber();
+		const { value, isInteger, sign } = consumeANumber();
 		if (wouldStartAnIdentifier(next(1), next(2), next(3))) {
 			const unit = consumeAName();
 			return new DimensionToken(value, unit, sign);
@@ -290,7 +291,7 @@ function tokenize(str: string) {
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-ident-like-token  */
 	function consumeAnIdentlikeToken() {
-		var str = consumeAName();
+		const str = consumeAName();
 		if (str.toLowerCase() == "url" && next() == 0x28) {
 			consume();
 			while (whitespace(next(1)) && whitespace(next(2))) consume();
@@ -311,7 +312,7 @@ function tokenize(str: string) {
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-string-token  */
 	function consumeAStringToken(endingCodePoint = code) {
-		var string = "";
+		let string = "";
 		while (consume()) {
 			if (code == endingCodePoint || eof() || code == null) {
 				return new StringToken(string);
@@ -335,7 +336,7 @@ function tokenize(str: string) {
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-url-token  */
 	function consumeAURLToken() {
-		var token = new URLToken("");
+		const token = new URLToken("");
 		while (whitespace(next())) consume();
 		if (eof(next())) return token;
 		while (consume()) {
@@ -375,8 +376,8 @@ function tokenize(str: string) {
 		consume();
 		if (hexdigit(code)) {
 			// Consume 1-6 hex digits
-			var digits = [code];
-			for (var total = 0; total < 5; total++) {
+			const digits = [code];
+			for (let total = 0; total < 5; total++) {
 				if (hexdigit(next())) {
 					consume();
 					digits.push(code);
@@ -385,7 +386,7 @@ function tokenize(str: string) {
 				}
 			}
 			if (whitespace(next())) consume();
-			var value = parseInt(
+			let value = parseInt(
 				digits
 					.map(function (x) {
 						return String.fromCharCode(x);
@@ -495,9 +496,7 @@ function tokenize(str: string) {
 			}
 			isInteger = false;
 		}
-		var c1 = next(1),
-			c2 = next(2),
-			c3 = next(3);
+		const [c1, c2, c3] = [next(1), next(2), next(3)];
 		const eDigit = (c1 == 0x45 || c1 == 0x65) && digit(c2);
 		const eSignDigit = (c1 == 0x45 || c1 == 0x65) && (c2 == 0x2b || c2 == 0x2d) && digit(c3);
 		if (eDigit || eSignDigit) {
@@ -566,7 +565,7 @@ function tokenize(str: string) {
 		}
 	}
 
-	var iterationCount = 0;
+	let iterationCount = 0;
 	while (!eof(next())) {
 		// should reasonably be not undefined
 		tokens.push(consumeAToken()!);
@@ -1136,7 +1135,7 @@ function consumeAnAtRule(s: TokenStream, nested = false) {
 }
 
 function consumeAQualifiedRule(s: TokenStream, nested = false, stopToken = EOFToken) {
-	var rule = new QualifiedRule();
+	const rule = new QualifiedRule();
 	while (1) {
 		const token = s.nextToken();
 		if (token instanceof EOFToken || token instanceof stopToken) {
@@ -1233,8 +1232,8 @@ function consumeADeclaration(s: TokenStream, nested = false) {
 	s.discardWhitespace();
 	decl.value = consumeAListOfComponentValues(s, nested, SemicolonToken);
 
-	var foundImportant = false;
-	for (var i = decl.value.length - 1; i >= 0; i--) {
+	let foundImportant = false;
+	for (let i = decl.value.length - 1; i >= 0; i--) {
 		const val = decl.value[i];
 		if (val instanceof WhitespaceToken) {
 			continue;
@@ -1249,7 +1248,7 @@ function consumeADeclaration(s: TokenStream, nested = false) {
 		}
 	}
 
-	var i = decl.value.length - 1;
+	let i = decl.value.length - 1;
 	while (decl.value[i] instanceof WhitespaceToken) {
 		decl.value.length = i;
 		i--;
@@ -1391,7 +1390,7 @@ function normalizeInput(input: string | TokenStream | CSSParserToken[]) {
 /** @see https://drafts.csswg.org/css-syntax/#parse-a-stylesheet  */
 function parseAStylesheet(s: string | TokenStream) {
 	s = normalizeInput(s);
-	var sheet = new Stylesheet();
+	const sheet = new Stylesheet();
 	sheet.rules = consumeAStylesheetsContents(s);
 	return sheet;
 }
