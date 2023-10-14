@@ -136,7 +136,7 @@ function asciiCaselessMatch(s1: string, s2: string) {
 }
 
 /** @see https://drafts.csswg.org/css-syntax/#tokenization */
-function tokenize(str: string) {
+function tokenise(str: string, opts?: ParseOpts) {
 	const codepoints = preprocess(str);
 	let i = -1;
 	const tokens: CSSParserToken[] = [];
@@ -201,7 +201,7 @@ function tokenize(str: string) {
 	}
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-token */
-	function consumeAToken() {
+	function consumeAToken(opts?: ParseOpts) {
 		consumeComments();
 		const from = position.clone();
 		consume();
@@ -306,7 +306,7 @@ function tokenize(str: string) {
 		} else if (digit(code)) {
 			reconsume();
 			return consumeANumericToken(from);
-		} else if (code == 0x55 || code == 0x75) {
+		} else if (opts?.unicodeRangesAllowed && (code == 0x55 || code == 0x75)) {
 			if (wouldStartAUnicodeRange(code, next(1), next(2))) {
 				reconsume();
 				return consumeAUnicodeRangeToken(from);
@@ -657,7 +657,7 @@ function tokenize(str: string) {
 
 	let iterationCount = 0;
 	while (!eof(next())) {
-		tokens.push(consumeAToken());
+		tokens.push(consumeAToken(opts));
 		iterationCount++;
 		if (iterationCount > codepoints.length * 2) throw "I'm infinite-looping!";
 	}
@@ -1525,16 +1525,21 @@ function filterValid(construct: TopLevel, context?: unknown) {
 	return;
 }
 
-function normalizeInput(input: string | TokenStream | CSSParserToken[]) {
-	if (typeof input == "string") return new TokenStream(tokenize(input));
+function normalizeInput(input: string | TokenStream | CSSParserToken[], opts?: ParseOpts) {
+	if (typeof input == "string") return new TokenStream(tokenise(input, opts));
 	if (input instanceof TokenStream) return input;
 	if (input.length !== undefined) return new TokenStream(input);
 	else throw SyntaxError(String(input));
 }
 
+interface ParseOpts {
+	/** @see https://drafts.csswg.org/css-syntax/#consume-token */
+	unicodeRangesAllowed?: boolean;
+}
+
 /** @see https://drafts.csswg.org/css-syntax/#parse-a-stylesheet */
-function parseAStylesheet(s: string | TokenStream) {
-	s = normalizeInput(s);
+function parseAStylesheet(s: string | TokenStream, opts?: ParseOpts) {
+	s = normalizeInput(s, opts);
 	const sheet = new Stylesheet(dbg(new Position(0, 0)));
 	sheet.rules = consumeAStylesheetsContents(s);
 	sheet.debug.to = s.pos.clone();
@@ -1542,20 +1547,20 @@ function parseAStylesheet(s: string | TokenStream) {
 }
 
 /** @see https://drafts.csswg.org/css-syntax/#parse-stylesheet-contents */
-function parseAStylesheetsContents(s: TokenStream) {
-	s = normalizeInput(s);
+function parseAStylesheetsContents(s: TokenStream, opts?: ParseOpts) {
+	s = normalizeInput(s, opts);
 	return consumeAStylesheetsContents(s);
 }
 
 /** @see https://drafts.csswg.org/css-syntax/#parse-block-contents */
-function parseABlocksContents(s: TokenStream) {
-	s = normalizeInput(s);
+function parseABlocksContents(s: TokenStream, opts?: ParseOpts) {
+	s = normalizeInput(s, opts);
 	return consumeABlocksContents(s);
 }
 
 /** @see https://drafts.csswg.org/css-syntax/#parse-rule */
-function parseARule(s: TokenStream) {
-	s = normalizeInput(s);
+function parseARule(s: TokenStream, opts?: ParseOpts) {
+	s = normalizeInput(s, opts);
 	let rule;
 	s.discardWhitespace();
 	if (s.nextToken() instanceof EOFToken) throw SyntaxError();
@@ -1571,8 +1576,8 @@ function parseARule(s: TokenStream) {
 }
 
 /** @see https://drafts.csswg.org/css-syntax/#parse-declaration */
-function parseADeclaration(s: TokenStream) {
-	s = normalizeInput(s);
+function parseADeclaration(s: TokenStream, opts?: ParseOpts) {
+	s = normalizeInput(s, opts);
 	s.discardWhitespace();
 	const decl = consumeADeclaration(s);
 	if (decl) return decl;
@@ -1580,8 +1585,8 @@ function parseADeclaration(s: TokenStream) {
 }
 
 /** @see https://drafts.csswg.org/css-syntax/#parse-component-value */
-function parseAComponentValue(s: TokenStream) {
-	s = normalizeInput(s);
+function parseAComponentValue(s: TokenStream, opts?: ParseOpts) {
+	s = normalizeInput(s, opts);
 	s.discardWhitespace();
 	if (s.empty()) throw SyntaxError();
 	const val = consumeAComponentValue(s);
@@ -1591,14 +1596,14 @@ function parseAComponentValue(s: TokenStream) {
 }
 
 /** @see https://drafts.csswg.org/css-syntax/#parse-list-of-component-values */
-function parseAListOfComponentValues(s: TokenStream) {
-	s = normalizeInput(s);
+function parseAListOfComponentValues(s: TokenStream, opts?: ParseOpts) {
+	s = normalizeInput(s, opts);
 	return consumeAListOfComponentValues(s);
 }
 
 /** @see https://drafts.csswg.org/css-syntax/#parse-comma-separated-list-of-component-values */
-function parseACommaSeparatedListOfComponentValues(s: TokenStream) {
-	s = normalizeInput(s);
+function parseACommaSeparatedListOfComponentValues(s: TokenStream, opts?: ParseOpts) {
+	s = normalizeInput(s, opts);
 	const groups = [];
 	while (!s.empty()) {
 		groups.push(consumeAListOfComponentValues(s, false, CommaToken));
