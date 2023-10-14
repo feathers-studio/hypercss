@@ -1,4 +1,4 @@
-import { assertEquals } from "https://deno.land/std@0.204.0/assert/mod.ts";
+import { assertEquals } from "https://deno.land/std@0.204.0/assert/assert_equals.ts";
 
 import {
 	parseAStylesheet,
@@ -15,17 +15,33 @@ import {
 	ColonToken,
 	DimensionToken,
 	DelimToken,
+	Debug,
+	Position,
 } from "./index.ts";
-
-const src1 = `foo {
-	bar: baz;
-}`;
 
 const ws = new WhitespaceToken();
 const comma = new CommaToken();
 const colon = new ColonToken();
 
+function destroyExcluded<O>(obj: O, exclude: unknown[]): void {
+	if (obj && typeof obj === "object")
+		for (const prop in obj) {
+			if (exclude.includes(prop)) delete obj[prop];
+			else if (typeof obj[prop] === "object") destroyExcluded(obj[prop], exclude);
+		}
+}
+
+const assert = <T>(actual: T, expected: T) => (
+	destroyExcluded(actual, ["debug"]),
+	destroyExcluded(expected, ["debug"]),
+	assertEquals(actual, expected)
+);
+
 Deno.test("Rule with ident token", () => {
+	const src = `foo {
+	bar: baz;
+}`;
+
 	const decl = new Declaration("bar");
 	decl.value = [new IdentToken("baz")];
 
@@ -36,16 +52,24 @@ Deno.test("Rule with ident token", () => {
 	const expected = new Stylesheet();
 	expected.rules = [qualified];
 
-	const parsed = parseAStylesheet(src1);
-	assertEquals(parsed.toString(" "), expected.toString(" "));
-	assertEquals(parsed.toSource(0), src1);
+	const parsed = parseAStylesheet(src);
+	assert(parsed.toSource(), src);
+	assert(parsed, expected);
 });
 
-const src2 = `foo {
+const debug = (line: number, column: number) => {
+	const d = new Debug(new Position(line, column));
+	return (line: number, column: number): Debug => {
+		d.to = new Position(line, column);
+		return d;
+	};
+};
+
+Deno.test("Rule with function and values", () => {
+	const src = `foo {
 	bar: rgb(255, 0, 127);
 }`;
 
-Deno.test("Rule with function and values", () => {
 	const rgb = new Func("rgb");
 	const r = new NumberToken(255, true);
 	const g = new NumberToken(0, true);
@@ -62,28 +86,62 @@ Deno.test("Rule with function and values", () => {
 	const expected = new Stylesheet();
 	expected.rules = [qualified];
 
-	const parsed = parseAStylesheet(src2);
-	assertEquals(parsed.toString(" "), expected.toString(" "));
-	assertEquals(parsed.toSource(0), src2);
+	const parsed = parseAStylesheet(src);
+	assert(parsed.toSource(), src);
+	assert(parsed, expected);
 });
 
-const src3 = `@media {
+Deno.test("Empty at-rule", () => {
+	const src = `@media {
 
 }`;
 
-Deno.test("Empty at-rule", () => {
 	const atrule = new AtRule("media");
 	atrule.prelude = [ws];
 
 	const expected = new Stylesheet();
 	expected.rules = [atrule];
 
-	const parsed = parseAStylesheet(src3);
-	assertEquals(parsed.toSource(0), src3);
-	assertEquals(parsed, expected);
+	const parsed = parseAStylesheet(src);
+	assert(parsed, expected);
+	assert(parsed.toSource(), src);
 });
 
-const src4 = `@font-face {
+Deno.test("an+b", () => {
+	const src = `div:nth-child(2n + 3) {
+}`;
+
+	const func = new Func("nth-child");
+	func.value = [new DimensionToken(2, "n"), ws, new DelimToken("+"), ws, new NumberToken(3, true)];
+
+	const qualified = new QualifiedRule();
+	qualified.prelude = [new IdentToken("div"), colon, func, ws];
+
+	const expected = new Stylesheet();
+	expected.rules = [qualified];
+
+	const parsed = parseAStylesheet(src);
+	assert(parsed.toSource(), src);
+	assert(parsed, expected);
+});
+
+Deno.test("u+a as selector (unicodeRangesAllowed: false)", () => {
+	const src = `u+a {
+}`;
+
+	const qualified = new QualifiedRule();
+	qualified.prelude = [new IdentToken("u"), new DelimToken("+"), new IdentToken("a"), ws];
+
+	const expected = new Stylesheet();
+	expected.rules = [qualified];
+
+	const parsed = parseAStylesheet(src);
+	assert(parsed.toSource(), src);
+	assert(parsed, expected);
+});
+
+Deno.test("unicode ranges (unicodeRangesAllowed: true)", () => {
+	const src = `@font-face {
 	unicode-range: U+26;
 	unicode-range: U+0-7F;
 	unicode-range: U+0025-00FF;
@@ -91,7 +149,7 @@ const src4 = `@font-face {
 	unicode-range: U+0025-00FF, U+4??;
 }`;
 
-const expect4 = `@font-face {
+	const expect = `@font-face {
 	unicode-range: U+26;
 	unicode-range: U+0-7F;
 	unicode-range: U+0025-00FF;
@@ -99,7 +157,6 @@ const expect4 = `@font-face {
 	unicode-range: U+0025-00FF, U+400-4FF;
 }`;
 
-Deno.test("unicode-range", () => {
 	const decl1 = new Declaration("unicode-range");
 	decl1.value = [new UnicodeRangeToken("26", "26")];
 
@@ -122,25 +179,7 @@ Deno.test("unicode-range", () => {
 	const expected = new Stylesheet();
 	expected.rules = [atrule];
 
-	const parsed = parseAStylesheet(src4);
-	assertEquals(parsed.toSource(0), expect4);
-	assertEquals(parsed, expected);
-});
-
-const src5 = `div:nth-child(2n + 3) {
-}`;
-
-Deno.test("an+b", () => {
-	const func = new Func("nth-child");
-	func.value = [new DimensionToken(2, "n"), ws, new DelimToken("+"), ws, new NumberToken(3, true)];
-
-	const qualified = new QualifiedRule();
-	qualified.prelude = [new IdentToken("div"), colon, func, ws];
-
-	const expected = new Stylesheet();
-	expected.rules = [qualified];
-
-	const parsed = parseAStylesheet(src5);
-	assertEquals(parsed.toSource(0), src5);
-	assertEquals(parsed, expected);
+	const parsed = parseAStylesheet(src, { unicodeRangesAllowed: true });
+	assert(parsed.toSource(), expect);
+	assert(parsed, expected);
 });
