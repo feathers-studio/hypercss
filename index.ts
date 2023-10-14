@@ -649,7 +649,10 @@ class CSSParserToken {
 	constructor(public type: string, public debug: Debug) {}
 
 	toJSON() {
-		return { type: this.type };
+		return {
+			type: this.type,
+			debug: this.debug,
+		};
 	}
 	toString() {
 		return this.type;
@@ -833,7 +836,11 @@ class DelimToken extends CSSParserToken {
 		return `DELIM(${this.value})`;
 	}
 	toJSON() {
-		return { type: this.type, value: this.value };
+		return {
+			type: this.type,
+			value: this.value,
+			debug: this.debug,
+		};
 	}
 	toSource() {
 		if (this.value == "\\") return "\\\n";
@@ -849,7 +856,11 @@ class IdentToken extends CSSParserToken {
 		return `IDENT(${this.value})`;
 	}
 	toJSON() {
-		return { type: this.type, value: this.value };
+		return {
+			type: this.type,
+			value: this.value,
+			debug: this.debug,
+		};
 	}
 	toSource() {
 		return escapeIdent(this.value);
@@ -866,7 +877,11 @@ class FunctionToken extends CSSParserToken {
 		return `FUNCTION(${this.value})`;
 	}
 	toJSON() {
-		return { type: this.type, value: this.value };
+		return {
+			type: this.type,
+			value: this.value,
+			debug: this.debug,
+		};
 	}
 	toSource() {
 		return escapeIdent(this.value) + "(";
@@ -881,7 +896,11 @@ class AtKeywordToken extends CSSParserToken {
 		return `AT(${this.value})`;
 	}
 	toJSON() {
-		return { type: this.type, value: this.value };
+		return {
+			type: this.type,
+			value: this.value,
+			debug: this.debug,
+		};
 	}
 	toSource() {
 		return "@" + escapeIdent(this.value);
@@ -896,7 +915,12 @@ class HashToken extends CSSParserToken {
 		return `HASH(${this.value})`;
 	}
 	toJSON() {
-		return { type: this.type, value: this.value, isIdent: this.isIdent };
+		return {
+			type: this.type,
+			value: this.value,
+			isIdent: this.isIdent,
+			debug: this.debug,
+		};
 	}
 	toSource() {
 		if (this.isIdent) {
@@ -914,7 +938,11 @@ class StringToken extends CSSParserToken {
 		return `STRING(${this.value})`;
 	}
 	toJSON() {
-		return { type: this.type, value: this.value };
+		return {
+			type: this.type,
+			value: this.value,
+			debug: this.debug,
+		};
 	}
 	toSource() {
 		return `"${escapeString(this.value)}"`;
@@ -929,7 +957,11 @@ class URLToken extends CSSParserToken {
 		return `URL(${this.value})`;
 	}
 	toJSON() {
-		return { type: this.type, value: this.value };
+		return {
+			type: this.type,
+			value: this.value,
+			debug: this.debug,
+		};
 	}
 	toSource() {
 		return `url("${escapeString(this.value)}")`;
@@ -951,6 +983,7 @@ class NumberToken extends CSSParserToken {
 			value: this.value,
 			isInteger: this.isInteger,
 			sign: this.sign,
+			debug: this.debug,
 		};
 	}
 	toSource() {
@@ -967,7 +1000,12 @@ class PercentageToken extends CSSParserToken {
 		return `PERCENTAGE(${sign}${this.value})`;
 	}
 	toJSON() {
-		return { type: this.type, value: this.value, sign: this.sign };
+		return {
+			type: this.type,
+			value: this.value,
+			sign: this.sign,
+			debug: this.debug,
+		};
 	}
 	toSource() {
 		return `${formatNumber(this.value, this.sign)}%`;
@@ -983,7 +1021,12 @@ class DimensionToken extends CSSParserToken {
 		return `DIM(${sign}${this.value}, ${this.unit})`;
 	}
 	toJSON() {
-		return { type: this.type, value: this.value, unit: this.unit };
+		return {
+			type: this.type,
+			value: this.value,
+			unit: this.unit,
+			debug: this.debug,
+		};
 	}
 	toSource() {
 		let unit = escapeIdent(this.unit);
@@ -1473,8 +1516,9 @@ function normalizeInput(input: string | TokenStream | CSSParserToken[]) {
 /** @see https://drafts.csswg.org/css-syntax/#parse-a-stylesheet */
 function parseAStylesheet(s: string | TokenStream) {
 	s = normalizeInput(s);
-	const sheet = new Stylesheet({ from: { line: 0, column: 0 }, to: s.pos });
+	const sheet = new Stylesheet({ from: { line: 0, column: 0 }, to: { line: 0, column: 0 } });
 	sheet.rules = consumeAStylesheetsContents(s);
+	sheet.debug.to = { ...s.pos };
 	return sheet;
 }
 
@@ -1564,13 +1608,14 @@ class Stylesheet extends CSSParserRule {
 		return {
 			type: this.type,
 			rules: this.rules,
+			debug: this.debug,
 		};
 	}
 	toString(ident: string | number = "") {
 		return JSON.stringify(this.toJSON(), null, ident);
 	}
-	toSource(ident?: number) {
-		return this.rules.map(x => x.toSource(ident)).join("\n");
+	toSource() {
+		return this.rules.map(x => x.toSource(0)).join("\n");
 	}
 }
 
@@ -1584,6 +1629,7 @@ class AtRule extends CSSParserRule<"AT-RULE"> {
 	}
 	toJSON() {
 		return {
+			debug: this.debug,
 			type: this.type,
 			name: this.name,
 			prelude: this.prelude,
@@ -1620,6 +1666,7 @@ class QualifiedRule extends CSSParserRule<"QUALIFIED-RULE"> {
 	}
 	toJSON() {
 		return {
+			debug: this.debug,
 			type: this.type,
 			prelude: this.prelude,
 			declarations: this.declarations,
@@ -1660,6 +1707,7 @@ class Declaration extends CSSParserRule<"DECLARATION"> {
 			name: this.name,
 			value: this.value,
 			important: this.important,
+			debug: this.debug,
 		};
 	}
 	toSource(indent = 0) {
@@ -1686,6 +1734,7 @@ class SimpleBlock extends CSSParserRule {
 			type: this.type,
 			name: this.name,
 			value: this.value,
+			debug: this.debug,
 		};
 	}
 	toSource(): string {
@@ -1705,6 +1754,7 @@ class Func extends CSSParserRule {
 			type: this.type,
 			name: this.name,
 			value: this.value,
+			debug: this.debug,
 		};
 	}
 	toSource() {
