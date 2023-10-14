@@ -1,3 +1,13 @@
+interface Pos {
+	line: number;
+	column: number;
+}
+
+export interface Debug {
+	from: Pos;
+	to: Pos;
+}
+
 function char(str: string) {
 	return str.charCodeAt(0);
 }
@@ -73,7 +83,7 @@ class InvalidCharacterError extends Error {
 	}
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#input-preprocessing  */
+/** @see https://drafts.csswg.org/css-syntax/#input-preprocessing */
 function preprocess(str: string) {
 	// Turn a string into an array of code points,
 	// following the preprocessing cleanup rules.
@@ -102,7 +112,7 @@ function asciiCaselessMatch(s1: string, s2: string) {
 	return s1.toLowerCase() == s2.toLowerCase();
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#tokenization  */
+/** @see https://drafts.csswg.org/css-syntax/#tokenization */
 function tokenize(str: string) {
 	const codepoints = preprocess(str);
 	let i = -1;
@@ -110,17 +120,19 @@ function tokenize(str: string) {
 	let code: number;
 
 	// Line number information.
-	let line = 0;
-	let column = 0;
+	const position = { line: 1, column: 1 };
 	// The only use of lastLineLength is in reconsume().
 	let lastLineLength = 0;
 	function incrLineno() {
-		line += 1;
-		lastLineLength = column;
-		column = 0;
+		position.line += 1;
+		lastLineLength = position.column;
+		position.column = 0;
 	}
 
-	const locStart = { line: line, column: column };
+	const pos = () => ({ ...position });
+
+	// unsure why this exists
+	const locstart: Pos = pos();
 
 	function codepoint(i: number): number {
 		if (i >= codepoints.length) return -1;
@@ -137,20 +149,20 @@ function tokenize(str: string) {
 		i += num;
 		code = codepoint(i);
 		if (newline(code)) incrLineno();
-		else column += num;
+		else position.column += num;
 		//console.log('Consume '+i+' '+String.fromCharCode(code) + ' 0x' + code.toString(16));
 		return true;
 	}
 	function reconsume() {
 		i -= 1;
 		if (newline(code)) {
-			line -= 1;
-			column = lastLineLength;
+			position.line -= 1;
+			position.column = lastLineLength;
 		} else {
-			column -= 1;
+			position.column -= 1;
 		}
-		locStart.line = line;
-		locStart.column = column;
+		locstart.line = position.line;
+		locstart.column = position.column;
 		return true;
 	}
 	function eof(codepoint?: number) {
@@ -167,98 +179,135 @@ function tokenize(str: string) {
 		return true;
 	}
 
-	/** @see https://drafts.csswg.org/css-syntax/#consume-token  */
+	/** @see https://drafts.csswg.org/css-syntax/#consume-token */
 	function consumeAToken() {
 		consumeComments();
+		const from = pos();
 		consume();
 		if (code == null) return;
 		if (whitespace(code)) {
 			while (whitespace(next())) consume();
-			return new WhitespaceToken();
-		} else if (code == 0x22) return consumeAStringToken();
+			const to = pos();
+			return new WhitespaceToken({ from, to });
+		} else if (code == 0x22) return consumeAStringToken(from);
 		else if (code == 0x23) {
 			if (namechar(next()) || areAValidEscape(next(1), next(2))) {
 				const isIdent = wouldStartAnIdentifier(next(1), next(2), next(3));
-				return new HashToken(consumeAName()!, isIdent);
+				const name = consumeAName();
+				const to = pos();
+				return new HashToken(name, isIdent, { from, to });
 			} else {
-				return new DelimToken(code);
+				return new DelimToken(code, { from, to: from });
 			}
-		} else if (code == 0x27) return consumeAStringToken();
-		else if (code == 0x28) return new OpenParenToken();
-		else if (code == 0x29) return new CloseParenToken();
-		else if (code == 0x2b) {
+		} else if (code == 0x27) return consumeAStringToken(from);
+		else if (code == 0x28) {
+			const to = pos();
+			return new OpenParenToken({ from, to });
+		} else if (code == 0x29) {
+			const to = pos();
+			return new CloseParenToken({ from, to });
+		} else if (code == 0x2b) {
 			if (startsWithANumber()) {
 				reconsume();
-				return consumeANumericToken();
+				return consumeANumericToken(from);
 			} else {
-				return new DelimToken(code);
+				const to = pos();
+				return new DelimToken(code, { from, to });
 			}
-		} else if (code == 0x2c) return new CommaToken();
-		else if (code == 0x2d) {
+		} else if (code == 0x2c) {
+			const to = pos();
+			return new CommaToken({ from, to });
+		} else if (code == 0x2d) {
 			if (startsWithANumber()) {
 				reconsume();
-				return consumeANumericToken();
+				return consumeANumericToken(from);
 			} else if (next(1) == 0x2d && next(2) == 0x3e) {
 				consume(2);
-				return new CDCToken();
+				const to = pos();
+				return new CDCToken({ from, to });
 			} else if (startsWithAnIdentifier()) {
 				reconsume();
-				return consumeAnIdentlikeToken();
+				return consumeAnIdentlikeToken(from);
 			} else {
-				return new DelimToken(code);
+				const to = pos();
+				return new DelimToken(code, { from, to });
 			}
 		} else if (code == 0x2e) {
 			if (startsWithANumber()) {
 				reconsume();
-				return consumeANumericToken();
+				return consumeANumericToken(from);
 			} else {
-				return new DelimToken(code);
+				const to = pos();
+				return new DelimToken(code, { from, to });
 			}
-		} else if (code == 0x3a) return new ColonToken();
-		else if (code == 0x3b) return new SemicolonToken();
-		else if (code == 0x3c) {
+		} else if (code == 0x3a) {
+			const to = pos();
+			return new ColonToken({ from, to });
+		} else if (code == 0x3b) {
+			const to = pos();
+			return new SemicolonToken({ from, to });
+		} else if (code == 0x3c) {
 			if (next(1) == 0x21 && next(2) == 0x2d && next(3) == 0x2d) {
 				consume(3);
-				return new CDOToken();
+				const to = pos();
+				return new CDOToken({ from, to });
 			} else {
-				return new DelimToken(code);
+				const to = pos();
+				return new DelimToken(code, { from, to });
 			}
 		} else if (code == 0x40) {
 			if (wouldStartAnIdentifier(next(1), next(2), next(3))) {
-				return new AtKeywordToken(consumeAName()!);
+				const name = consumeAName();
+				const to = pos();
+				return new AtKeywordToken(name, { from, to });
 			} else {
-				return new DelimToken(code);
+				const to = pos();
+				return new DelimToken(code, { from, to });
 			}
-		} else if (code == 0x5b) return new OpenSquareToken();
-		else if (code == 0x5c) {
+		} else if (code == 0x5b) {
+			const to = pos();
+			return new OpenSquareToken({ from, to });
+		} else if (code == 0x5c) {
 			if (startsWithAValidEscape()) {
 				reconsume();
-				return consumeAnIdentlikeToken();
+				return consumeAnIdentlikeToken(from);
 			} else {
 				parseerror();
-				return new DelimToken(code);
+				const to = pos();
+				return new DelimToken(code, { from, to });
 			}
-		} else if (code == 0x5d) return new CloseSquareToken();
-		else if (code == 0x7b) return new OpenCurlyToken();
-		else if (code == 0x7d) return new CloseCurlyToken();
-		else if (digit(code)) {
+		} else if (code == 0x5d) {
+			const to = pos();
+			return new CloseSquareToken({ from, to });
+		} else if (code == 0x7b) {
+			const to = pos();
+			return new OpenCurlyToken({ from, to });
+		} else if (code == 0x7d) {
+			const to = pos();
+			return new CloseCurlyToken({ from, to });
+		} else if (digit(code)) {
 			reconsume();
-			return consumeANumericToken();
+			return consumeANumericToken(from);
 		} else if (code == 0x55 || code == 0x75) {
 			if (wouldStartAUnicodeRange(code, next(1), next(2))) {
 				reconsume();
-				return consumeAUnicodeRangeToken();
+				return consumeAUnicodeRangeToken(from);
 			}
 			reconsume();
-			return consumeAnIdentlikeToken();
+			return consumeAnIdentlikeToken(from);
 		} else if (namestartchar(code)) {
 			reconsume();
-			return consumeAnIdentlikeToken();
-		} else if (eof()) return new EOFToken();
-		else return new DelimToken(code);
+			return consumeAnIdentlikeToken(from);
+		} else if (eof()) {
+			const to = pos();
+			return new EOFToken({ from, to });
+		} else {
+			const to = pos();
+			return new DelimToken(code, { from, to });
+		}
 	}
 
-	/** @see https://drafts.csswg.org/css-syntax/#consume-comment  */
+	/** @see https://drafts.csswg.org/css-syntax/#consume-comment */
 	function consumeComments() {
 		while (next(1) == 0x2f && next(2) == 0x2a) {
 			consume(2);
@@ -275,51 +324,60 @@ function tokenize(str: string) {
 		}
 	}
 
-	/** @see https://drafts.csswg.org/css-syntax/#consume-numeric-token  */
-	function consumeANumericToken() {
+	/** @see https://drafts.csswg.org/css-syntax/#consume-numeric-token */
+	function consumeANumericToken(from: Pos) {
 		const { value, isInteger, sign } = consumeANumber();
 		if (wouldStartAnIdentifier(next(1), next(2), next(3))) {
 			const unit = consumeAName();
-			return new DimensionToken(value, unit, sign);
+			const to = pos();
+			return new DimensionToken(value, unit, sign, { from, to });
 		} else if (next() == 0x25) {
 			consume();
-			return new PercentageToken(value, sign);
+			const to = pos();
+			return new PercentageToken(value, sign, { from, to });
 		} else {
-			return new NumberToken(value, isInteger, sign);
+			const to = pos();
+			return new NumberToken(value, isInteger, sign, { from, to });
 		}
 	}
 
-	/** @see https://drafts.csswg.org/css-syntax/#consume-ident-like-token  */
-	function consumeAnIdentlikeToken() {
+	/** @see https://drafts.csswg.org/css-syntax/#consume-ident-like-token */
+	function consumeAnIdentlikeToken(from: Pos) {
 		const str = consumeAName();
 		if (str.toLowerCase() == "url" && next() == 0x28) {
 			consume();
 			while (whitespace(next(1)) && whitespace(next(2))) consume();
 			if (next() == 0x22 || next() == 0x27) {
-				return new FunctionToken(str);
+				const to = pos();
+				return new FunctionToken(str, { from, to });
 			} else if (whitespace(next()) && (next(2) == 0x22 || next(2) == 0x27)) {
-				return new FunctionToken(str);
+				const to = pos();
+				return new FunctionToken(str, { from, to });
 			} else {
-				return consumeAURLToken();
+				return consumeAURLToken(from);
 			}
 		} else if (next() == 0x28) {
 			consume();
-			return new FunctionToken(str);
+			const to = pos();
+			return new FunctionToken(str, { from, to });
 		} else {
-			return new IdentToken(str);
+			const to = pos();
+			return new IdentToken(str, { from, to });
 		}
 	}
 
-	/** @see https://drafts.csswg.org/css-syntax/#consume-string-token  */
-	function consumeAStringToken(endingCodePoint = code) {
+	/** @see https://drafts.csswg.org/css-syntax/#consume-string-token */
+	function consumeAStringToken(from: Pos, endingCodePoint = code) {
 		let string = "";
 		while (consume()) {
 			if (code == endingCodePoint || eof() || code == null) {
-				return new StringToken(string);
+				const to = pos();
+				return new StringToken(string, { from, to });
 			} else if (newline(code)) {
 				parseerror();
 				reconsume();
-				return new BadStringToken();
+				const to = pos();
+				return new BadStringToken({ from, to });
 			} else if (code == 0x5c) {
 				if (eof(next())) {
 					donothing();
@@ -334,34 +392,42 @@ function tokenize(str: string) {
 		}
 	}
 
-	/** @see https://drafts.csswg.org/css-syntax/#consume-url-token  */
-	function consumeAURLToken() {
-		const token = new URLToken("");
+	/** @see https://drafts.csswg.org/css-syntax/#consume-url-token */
+	function consumeAURLToken(from: Pos) {
+		const to = pos();
+		const token = new URLToken("", { from, to });
 		while (whitespace(next())) consume();
 		if (eof(next())) return token;
 		while (consume()) {
 			if (code == 0x29 || eof()) {
+				const to = pos();
+				token.debug.to = to;
 				return token;
 			} else if (whitespace(code)) {
 				while (whitespace(next())) consume();
 				if (next() == 0x29 || eof(next())) {
 					consume();
+					const to = pos();
+					token.debug.to = to;
 					return token;
 				} else {
 					consumeTheRemnantsOfABadURL();
-					return new BadURLToken();
+					const to = pos();
+					return new BadURLToken({ from, to });
 				}
 			} else if (code == 0x22 || code == 0x27 || code == 0x28 || nonprintable(code)) {
 				parseerror();
 				consumeTheRemnantsOfABadURL();
-				return new BadURLToken();
+				const to = pos();
+				return new BadURLToken({ from, to });
 			} else if (code == 0x5c) {
 				if (startsWithAValidEscape()) {
 					token.value += String.fromCodePoint(consumeEscape());
 				} else {
 					parseerror();
 					consumeTheRemnantsOfABadURL();
-					return new BadURLToken();
+					const to = pos();
+					return new BadURLToken({ from, to });
 				}
 			} else {
 				token.value += String.fromCodePoint(code);
@@ -369,7 +435,7 @@ function tokenize(str: string) {
 		}
 	}
 
-	/** @see https://drafts.csswg.org/css-syntax/#consume-escaped-code-point  */
+	/** @see https://drafts.csswg.org/css-syntax/#consume-escaped-code-point */
 	function consumeEscape() {
 		// Assume the the current character is the \
 		// and the next code point is not a newline.
@@ -403,7 +469,7 @@ function tokenize(str: string) {
 		}
 	}
 
-	/** @see https://drafts.csswg.org/css-syntax/#starts-with-a-valid-escape  */
+	/** @see https://drafts.csswg.org/css-syntax/#starts-with-a-valid-escape */
 	function areAValidEscape(c1: number, c2: number) {
 		if (c1 != 0x5c) return false;
 		if (newline(c2)) return false;
@@ -413,7 +479,7 @@ function tokenize(str: string) {
 		return areAValidEscape(code, next());
 	}
 
-	/** @see https://drafts.csswg.org/css-syntax/#would-start-an-identifier  */
+	/** @see https://drafts.csswg.org/css-syntax/#would-start-an-identifier */
 	function wouldStartAnIdentifier(c1: number, c2: number, c3: number) {
 		if (c1 == 0x2d) {
 			return namestartchar(c2) || c2 == 0x2d || areAValidEscape(c2, c3);
@@ -430,7 +496,7 @@ function tokenize(str: string) {
 		return wouldStartAnIdentifier(code, next(1), next(2));
 	}
 
-	/** @see https://drafts.csswg.org/css-syntax/#starts-with-a-number  */
+	/** @see https://drafts.csswg.org/css-syntax/#starts-with-a-number */
 	function wouldStartANumber(c1: number, c2: number, c3: number) {
 		if (c1 == 0x2b || c1 == 0x2d) {
 			if (digit(c2)) return true;
@@ -449,13 +515,13 @@ function tokenize(str: string) {
 	function startsWithANumber() {
 		return wouldStartANumber(code, next(1), next(2));
 	}
-	/** @see https://drafts.csswg.org/css-syntax/#starts-a-unicode-range  */
+	/** @see https://drafts.csswg.org/css-syntax/#starts-a-unicode-range */
 	function wouldStartAUnicodeRange(c1: number, c2: number, c3: number) {
 		if (c1 == 0x55 || c1 == 0x75) if (c2 == 0x2b) if (c3 == 0x3f || hexdigit(c3)) return true;
 		return false;
 	}
 
-	/** @see https://drafts.csswg.org/css-syntax/#consume-name  */
+	/** @see https://drafts.csswg.org/css-syntax/#consume-name */
 	function consumeAName() {
 		let result = "";
 		while (consume()) {
@@ -472,10 +538,10 @@ function tokenize(str: string) {
 		return result; // unreachable
 	}
 
-	/** @see https://drafts.csswg.org/css-syntax/#consume-number  */
+	/** @see https://drafts.csswg.org/css-syntax/#consume-number */
 	function consumeANumber() {
 		let isInteger = true;
-		let sign;
+		let sign = "";
 		let numberPart = "";
 		let exponentPart = "";
 		if (next() == 0x2b || next() == 0x2d) {
@@ -517,8 +583,8 @@ function tokenize(str: string) {
 		return { value, isInteger, sign };
 	}
 
-	/** @see https://drafts.csswg.org/css-syntax/#consume-unicode-range-token  */
-	function consumeAUnicodeRangeToken() {
+	/** @see https://drafts.csswg.org/css-syntax/#consume-a-unicode-range-token */
+	function consumeAUnicodeRangeToken(from: Pos) {
 		let firstSegment = "";
 		let start = "";
 		let end = "";
@@ -536,9 +602,9 @@ function tokenize(str: string) {
 			}
 			start = firstSegment + String.fromCodePoint(0x30).repeat(wildcardLen);
 			end = firstSegment + String.fromCodePoint(0x46).repeat(wildcardLen);
-			return new UnicodeRangeToken(start, end);
+			const to = pos();
+			return new UnicodeRangeToken(start, end, { from, to });
 		}
-
 		start = firstSegment;
 		if (next(1) == 0x2d && hexdigit(next(2))) {
 			consume();
@@ -546,12 +612,14 @@ function tokenize(str: string) {
 				consume();
 				end += String.fromCodePoint(code);
 			}
-			return new UnicodeRangeToken(start, end);
+			const to = pos();
+			return new UnicodeRangeToken(start, end, { from, to });
 		}
-		return new UnicodeRangeToken(start, start);
+		const to = pos();
+		return new UnicodeRangeToken(start, start, { from, to });
 	}
 
-	/** @see https://drafts.csswg.org/css-syntax/#consume-remnants-of-bad-url  */
+	/** @see https://drafts.csswg.org/css-syntax/#consume-remnants-of-bad-url */
 	function consumeTheRemnantsOfABadURL() {
 		while (consume()) {
 			if (code == 0x29 || eof()) {
@@ -578,7 +646,7 @@ function tokenize(str: string) {
 class CSSParserToken {
 	public value: unknown;
 
-	constructor(public type: string) {}
+	constructor(public type: string, public debug: Debug) {}
 
 	toJSON() {
 		return { type: this.type };
@@ -592,8 +660,8 @@ class CSSParserToken {
 }
 
 class BadStringToken extends CSSParserToken {
-	constructor() {
-		super("BADSTRING");
+	constructor(debug: Debug) {
+		super("BADSTRING", debug);
 	}
 	toSource() {
 		return '"\n"';
@@ -602,8 +670,8 @@ class BadStringToken extends CSSParserToken {
 
 class BadURLToken extends CSSParserToken {
 	public tokenType: string = "BADURL";
-	constructor() {
-		super("BADURL");
+	constructor(debug: Debug) {
+		super("BADURL", debug);
 	}
 	toSource() {
 		return "url(BADURL '')";
@@ -611,8 +679,8 @@ class BadURLToken extends CSSParserToken {
 }
 
 class WhitespaceToken extends CSSParserToken {
-	constructor() {
-		super("WHITESPACE");
+	constructor(debug: Debug) {
+		super("WHITESPACE", debug);
 	}
 	toString() {
 		return "WS";
@@ -623,8 +691,8 @@ class WhitespaceToken extends CSSParserToken {
 }
 
 class CDOToken extends CSSParserToken {
-	constructor() {
-		super("CDO");
+	constructor(debug: Debug) {
+		super("CDO", debug);
 	}
 	toSource() {
 		return "<!--";
@@ -632,18 +700,18 @@ class CDOToken extends CSSParserToken {
 }
 
 class CDCToken extends CSSParserToken {
-	constructor() {
-		super("CDC");
+	constructor(debug: Debug) {
+		super("CDC", debug);
 	}
 	toSource() {
 		return "-->";
 	}
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#typedef-unicode-range-token  */
+/** @see https://drafts.csswg.org/css-syntax/#typedef-unicode-range-token */
 class UnicodeRangeToken extends CSSParserToken {
-	constructor(public start: string, public end: string) {
-		super("UNICODE-RANGE");
+	constructor(public start: string, public end: string, debug: Debug) {
+		super("UNICODE-RANGE", debug);
 	}
 	toSource(): string {
 		if (this.start === this.end) return "U+" + this.start;
@@ -652,8 +720,8 @@ class UnicodeRangeToken extends CSSParserToken {
 }
 
 class ColonToken extends CSSParserToken {
-	constructor() {
-		super("COLON");
+	constructor(debug: Debug) {
+		super("COLON", debug);
 	}
 	toSource() {
 		return ":";
@@ -661,8 +729,8 @@ class ColonToken extends CSSParserToken {
 }
 
 class SemicolonToken extends CSSParserToken {
-	constructor() {
-		super("SEMICOLON");
+	constructor(debug: Debug) {
+		super("SEMICOLON", debug);
 	}
 	toSource() {
 		return ";";
@@ -670,8 +738,8 @@ class SemicolonToken extends CSSParserToken {
 }
 
 class CommaToken extends CSSParserToken {
-	constructor() {
-		super("COMMA");
+	constructor(debug: Debug) {
+		super("COMMA", debug);
 	}
 	toSource() {
 		return ",";
@@ -681,8 +749,8 @@ class CommaToken extends CSSParserToken {
 class OpenCurlyToken extends CSSParserToken {
 	public grouping = true;
 	public mirror: typeof CloseCurlyToken;
-	constructor() {
-		super("OPEN-CURLY");
+	constructor(debug: Debug) {
+		super("OPEN-CURLY", debug);
 		this.mirror = CloseCurlyToken;
 	}
 	toSource() {
@@ -691,8 +759,8 @@ class OpenCurlyToken extends CSSParserToken {
 }
 
 class CloseCurlyToken extends CSSParserToken {
-	constructor() {
-		super("CLOSE-CURLY");
+	constructor(debug: Debug) {
+		super("CLOSE-CURLY", debug);
 	}
 	toSource() {
 		return "}";
@@ -702,8 +770,8 @@ class CloseCurlyToken extends CSSParserToken {
 class OpenSquareToken extends CSSParserToken {
 	public grouping = true;
 	public mirror: typeof CloseSquareToken;
-	constructor() {
-		super("OPEN-SQUARE");
+	constructor(debug: Debug) {
+		super("OPEN-SQUARE", debug);
 		this.mirror = CloseSquareToken;
 	}
 	toSource() {
@@ -712,8 +780,8 @@ class OpenSquareToken extends CSSParserToken {
 }
 
 class CloseSquareToken extends CSSParserToken {
-	constructor() {
-		super("CLOSE-SQUARE");
+	constructor(debug: Debug) {
+		super("CLOSE-SQUARE", debug);
 	}
 	toSource() {
 		return "]";
@@ -723,8 +791,8 @@ class CloseSquareToken extends CSSParserToken {
 class OpenParenToken extends CSSParserToken {
 	public grouping = true;
 	public mirror: typeof CloseParenToken;
-	constructor() {
-		super("OPEN-PAREN");
+	constructor(debug: Debug) {
+		super("OPEN-PAREN", debug);
 		this.mirror = CloseParenToken;
 	}
 	toSource() {
@@ -733,8 +801,8 @@ class OpenParenToken extends CSSParserToken {
 }
 
 class CloseParenToken extends CSSParserToken {
-	constructor() {
-		super("CLOSE-PAREN");
+	constructor(debug: Debug) {
+		super("CLOSE-PAREN", debug);
 	}
 	toSource() {
 		return ")";
@@ -742,8 +810,8 @@ class CloseParenToken extends CSSParserToken {
 }
 
 class EOFToken extends CSSParserToken {
-	constructor() {
-		super("EOF");
+	constructor(debug: Debug) {
+		super("EOF", debug);
 	}
 	toSource() {
 		return "";
@@ -752,8 +820,8 @@ class EOFToken extends CSSParserToken {
 
 class DelimToken extends CSSParserToken {
 	public value: string;
-	constructor(val: number | string) {
-		super("DELIM");
+	constructor(val: number | string, debug: Debug) {
+		super("DELIM", debug);
 		if (typeof val == "number") {
 			val = String.fromCodePoint(val);
 		} else {
@@ -774,8 +842,8 @@ class DelimToken extends CSSParserToken {
 }
 
 class IdentToken extends CSSParserToken {
-	constructor(public value: string) {
-		super("IDENT");
+	constructor(public value: string, debug: Debug) {
+		super("IDENT", debug);
 	}
 	toString() {
 		return `IDENT(${this.value})`;
@@ -790,8 +858,8 @@ class IdentToken extends CSSParserToken {
 
 class FunctionToken extends CSSParserToken {
 	public mirror: typeof CloseParenToken;
-	constructor(public value: string) {
-		super("FUNCTION");
+	constructor(public value: string, debug: Debug) {
+		super("FUNCTION", debug);
 		this.mirror = CloseParenToken;
 	}
 	toString() {
@@ -806,8 +874,8 @@ class FunctionToken extends CSSParserToken {
 }
 
 class AtKeywordToken extends CSSParserToken {
-	constructor(public value: string) {
-		super("AT-KEYWORD");
+	constructor(public value: string, debug: Debug) {
+		super("AT-KEYWORD", debug);
 	}
 	toString() {
 		return `AT(${this.value})`;
@@ -821,8 +889,8 @@ class AtKeywordToken extends CSSParserToken {
 }
 
 class HashToken extends CSSParserToken {
-	constructor(public value: string, public isIdent: boolean) {
-		super("HASH");
+	constructor(public value: string, public isIdent: boolean, debug: Debug) {
+		super("HASH", debug);
 	}
 	toString() {
 		return `HASH(${this.value})`;
@@ -839,8 +907,8 @@ class HashToken extends CSSParserToken {
 }
 
 class StringToken extends CSSParserToken {
-	constructor(public value: string) {
-		super("STRING");
+	constructor(public value: string, debug: Debug) {
+		super("STRING", debug);
 	}
 	toString() {
 		return `STRING(${this.value})`;
@@ -854,8 +922,8 @@ class StringToken extends CSSParserToken {
 }
 
 class URLToken extends CSSParserToken {
-	constructor(public value: string) {
-		super("URL");
+	constructor(public value: string, debug: Debug) {
+		super("URL", debug);
 	}
 	toString() {
 		return `URL(${this.value})`;
@@ -869,8 +937,8 @@ class URLToken extends CSSParserToken {
 }
 
 class NumberToken extends CSSParserToken {
-	constructor(public value: number, public isInteger: boolean, public sign?: string) {
-		super("NUMBER");
+	constructor(public value: number, public isInteger: boolean, public sign: string, debug: Debug) {
+		super("NUMBER", debug);
 	}
 	toString() {
 		const name = this.isInteger ? "INT" : "NUMBER";
@@ -891,8 +959,8 @@ class NumberToken extends CSSParserToken {
 }
 
 class PercentageToken extends CSSParserToken {
-	constructor(public value: number, public sign?: string) {
-		super("PERCENTAGE");
+	constructor(public value: number, public sign: string, debug: Debug) {
+		super("PERCENTAGE", debug);
 	}
 	toString() {
 		const sign = this.sign == "+" ? "+" : "";
@@ -907,8 +975,8 @@ class PercentageToken extends CSSParserToken {
 }
 
 class DimensionToken extends CSSParserToken {
-	constructor(public value: number, public unit: string, public sign?: string) {
-		super("DIMENSION");
+	constructor(public value: number, public unit: string, public sign: string, debug: Debug) {
+		super("DIMENSION", debug);
 	}
 	toString() {
 		const sign = this.sign == "+" ? "+" : "";
@@ -1031,18 +1099,21 @@ export {
 	WhitespaceToken,
 };
 
-/** @see https://drafts.csswg.org/css-syntax/#parser-definitions  */
+/** @see https://drafts.csswg.org/css-syntax/#parser-definitions */
 class TokenStream {
 	public index: number;
 	public markedIndexes: number[];
+	public pos: Pos;
 	constructor(public tokens: CSSParserToken[]) {
 		// Assume that tokens is an array.
 		this.index = 0;
+		this.pos = { line: 0, column: 0 };
 		this.markedIndexes = [];
 	}
 	nextToken() {
 		if (this.index < this.tokens.length) return this.tokens[this.index];
-		return new EOFToken();
+		const pos = { ...this.pos };
+		return new EOFToken({ from: pos, to: pos });
 	}
 	empty() {
 		return this.index >= this.tokens.length;
@@ -1050,6 +1121,7 @@ class TokenStream {
 	consumeAToken() {
 		const tok = this.nextToken();
 		this.index++;
+		this.pos = { ...tok.debug.to };
 		return tok;
 	}
 	discardAToken() {
@@ -1113,7 +1185,8 @@ function consumeAnAtRule(s: TokenStream, nested = false) {
 	if (!(token instanceof AtKeywordToken)) {
 		throw new Error("consumeAnAtRule() called with an invalid token stream state.");
 	}
-	const rule = new AtRule(token.value);
+	const from = { ...s.pos };
+	const rule = new AtRule(token.value, { from, to: from });
 	while (1) {
 		const token = s.nextToken();
 		if (token instanceof SemicolonToken || token instanceof EOFToken) {
@@ -1135,7 +1208,8 @@ function consumeAnAtRule(s: TokenStream, nested = false) {
 }
 
 function consumeAQualifiedRule(s: TokenStream, nested = false, stopToken = EOFToken) {
-	const rule = new QualifiedRule();
+	const from = { ...s.pos };
+	const rule = new QualifiedRule({ from, to: from });
 	while (1) {
 		const token = s.nextToken();
 		if (token instanceof EOFToken || token instanceof stopToken) {
@@ -1153,7 +1227,9 @@ function consumeAQualifiedRule(s: TokenStream, nested = false, stopToken = EOFTo
 				return;
 			}
 			[rule.declarations, rule.rules] = consumeABlock(s);
-			return filterValid(rule);
+			const filtered = filterValid(rule);
+			if (filtered) filtered.debug.to = { ...token.debug.to };
+			return filtered;
 		} else {
 			rule.prelude.push(consumeAComponentValue(s));
 		}
@@ -1217,7 +1293,8 @@ function consumeABlocksContents(s: TokenStream): [decls: CSSParserRule[], rules:
 function consumeADeclaration(s: TokenStream, nested = false) {
 	let decl;
 	if (s.nextToken() instanceof IdentToken) {
-		decl = new Declaration((s.consumeAToken() as IdentToken).value);
+		const token = s.consumeAToken() as IdentToken;
+		decl = new Declaration(token.value, { ...token.debug });
 	} else {
 		consumeTheRemnantsOfABadDeclaration(s, nested);
 		return;
@@ -1253,7 +1330,10 @@ function consumeADeclaration(s: TokenStream, nested = false) {
 		decl.value.length = i;
 		i--;
 	}
-	return filterValid(decl);
+	const valid = filterValid(decl);
+	const last = decl.value.at(-1);
+	if (valid && last) valid.debug.to = last.debug.to;
+	return valid;
 }
 
 function consumeTheRemnantsOfABadDeclaration(s: TokenStream, nested: boolean) {
@@ -1300,14 +1380,14 @@ function consumeAComponentValue(s: TokenStream) {
 	return s.consumeAToken();
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#consume-a-simple-block  */
+/** @see https://drafts.csswg.org/css-syntax/#consume-a-simple-block */
 function consumeASimpleBlock(s: TokenStream): SimpleBlock {
 	// @ts-expect-error quack-checking
 	if (!s.nextToken().mirror) {
 		throw new Error("consumeASimpleBlock() called with an invalid token stream state.");
 	}
 	const start = s.nextToken();
-	const block = new SimpleBlock(start.toSource() as keyof typeof mirror);
+	const block = new SimpleBlock(start.toSource() as keyof typeof mirror, { ...start.debug });
 	s.discardAToken();
 	while (1) {
 		const token = s.nextToken();
@@ -1317,6 +1397,7 @@ function consumeASimpleBlock(s: TokenStream): SimpleBlock {
 			token instanceof start.mirror
 		) {
 			s.discardAToken();
+			block.debug.to = { ...token.debug.from };
 			return block;
 		} else {
 			block.value.push(consumeAComponentValue(s));
@@ -1326,17 +1407,19 @@ function consumeASimpleBlock(s: TokenStream): SimpleBlock {
 	return block; // unreachable
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#consume-a-function  */
+/** @see https://drafts.csswg.org/css-syntax/#consume-a-function */
 function consumeAFunction(s: TokenStream): Func {
 	if (!(s.nextToken() instanceof FunctionToken)) {
 		throw new Error("consumeAFunction() called with an invalid token stream state.");
 	}
 	// safe assertion, verified above
-	const func = new Func((s.consumeAToken() as FunctionToken).value);
+	const token = s.consumeAToken() as FunctionToken;
+	const func = new Func(token.value, { ...token.debug });
 	while (1) {
 		const token = s.nextToken();
 		if (token instanceof EOFToken || token instanceof CloseParenToken) {
 			s.discardAToken();
+			func.debug.to = { ...token.debug.from };
 			return func;
 		} else {
 			func.value.push(consumeAComponentValue(s));
@@ -1387,27 +1470,27 @@ function normalizeInput(input: string | TokenStream | CSSParserToken[]) {
 	else throw SyntaxError(String(input));
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#parse-a-stylesheet  */
+/** @see https://drafts.csswg.org/css-syntax/#parse-a-stylesheet */
 function parseAStylesheet(s: string | TokenStream) {
 	s = normalizeInput(s);
-	const sheet = new Stylesheet();
+	const sheet = new Stylesheet({ from: { line: 0, column: 0 }, to: s.pos });
 	sheet.rules = consumeAStylesheetsContents(s);
 	return sheet;
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#parse-stylesheet-contents  */
+/** @see https://drafts.csswg.org/css-syntax/#parse-stylesheet-contents */
 function parseAStylesheetsContents(s: TokenStream) {
 	s = normalizeInput(s);
 	return consumeAStylesheetsContents(s);
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#parse-block-contents  */
+/** @see https://drafts.csswg.org/css-syntax/#parse-block-contents */
 function parseABlocksContents(s: TokenStream) {
 	s = normalizeInput(s);
 	return consumeABlocksContents(s);
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#parse-rule  */
+/** @see https://drafts.csswg.org/css-syntax/#parse-rule */
 function parseARule(s: TokenStream) {
 	s = normalizeInput(s);
 	let rule;
@@ -1424,7 +1507,7 @@ function parseARule(s: TokenStream) {
 	throw SyntaxError();
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#parse-declaration  */
+/** @see https://drafts.csswg.org/css-syntax/#parse-declaration */
 function parseADeclaration(s: TokenStream) {
 	s = normalizeInput(s);
 	s.discardWhitespace();
@@ -1433,7 +1516,7 @@ function parseADeclaration(s: TokenStream) {
 	throw SyntaxError();
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#parse-component-value  */
+/** @see https://drafts.csswg.org/css-syntax/#parse-component-value */
 function parseAComponentValue(s: TokenStream) {
 	s = normalizeInput(s);
 	s.discardWhitespace();
@@ -1444,13 +1527,13 @@ function parseAComponentValue(s: TokenStream) {
 	throw SyntaxError();
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#parse-list-of-component-values  */
+/** @see https://drafts.csswg.org/css-syntax/#parse-list-of-component-values */
 function parseAListOfComponentValues(s: TokenStream) {
 	s = normalizeInput(s);
 	return consumeAListOfComponentValues(s);
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#parse-comma-separated-list-of-component-values  */
+/** @see https://drafts.csswg.org/css-syntax/#parse-comma-separated-list-of-component-values */
 function parseACommaSeparatedListOfComponentValues(s: TokenStream) {
 	s = normalizeInput(s);
 	const groups = [];
@@ -1462,7 +1545,7 @@ function parseACommaSeparatedListOfComponentValues(s: TokenStream) {
 }
 
 class CSSParserRule<Type extends string = string> {
-	constructor(public type: Type, public name?: string) {}
+	constructor(public type: Type, public name: string, public debug: Debug) {}
 	toSource(ident: number = 0) {
 		return "";
 	}
@@ -1471,11 +1554,11 @@ class CSSParserRule<Type extends string = string> {
 	}
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#css-stylesheet  */
+/** @see https://drafts.csswg.org/css-syntax/#css-stylesheet */
 class Stylesheet extends CSSParserRule {
 	public rules: CSSParserRule[] = [];
-	constructor() {
-		super("STYLESHEET");
+	constructor(debug: Debug) {
+		super("STYLESHEET", "Stylesheet", debug);
 	}
 	toJSON() {
 		return {
@@ -1491,13 +1574,13 @@ class Stylesheet extends CSSParserRule {
 	}
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#at-rule  */
+/** @see https://drafts.csswg.org/css-syntax/#at-rule */
 class AtRule extends CSSParserRule<"AT-RULE"> {
 	public prelude: CSSParserToken[] = [];
 	public declarations: CSSParserRule[] = [];
 	public rules: CSSParserRule[] = [];
-	constructor(public name: string) {
-		super("AT-RULE", name);
+	constructor(public name: string, debug: Debug) {
+		super("AT-RULE", name, debug);
 	}
 	toJSON() {
 		return {
@@ -1527,13 +1610,13 @@ class AtRule extends CSSParserRule<"AT-RULE"> {
 	}
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#qualified-rule  */
+/** @see https://drafts.csswg.org/css-syntax/#qualified-rule */
 class QualifiedRule extends CSSParserRule<"QUALIFIED-RULE"> {
 	public prelude: CSSParserToken[] = [];
 	public declarations: CSSParserRule[] = [];
 	public rules: CSSParserRule[] = [];
-	constructor() {
-		super("QUALIFIED-RULE");
+	constructor(debug: Debug) {
+		super("QUALIFIED-RULE", "QualifiedRule", debug);
 	}
 	toJSON() {
 		return {
@@ -1558,18 +1641,18 @@ class QualifiedRule extends CSSParserRule<"QUALIFIED-RULE"> {
 	}
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#preserved-tokens  */
+/** @see https://drafts.csswg.org/css-syntax/#preserved-tokens */
 type PreservedToken = Exclude<Tokens, FunctionToken | OpenCurlyToken | OpenParenToken | OpenSquareToken>;
 
-/** @see https://drafts.csswg.org/css-syntax/#component-value  */
+/** @see https://drafts.csswg.org/css-syntax/#component-value */
 type ComponentValue = PreservedToken | Func | SimpleBlock;
 
-/** @see https://drafts.csswg.org/css-syntax/#declaration  */
+/** @see https://drafts.csswg.org/css-syntax/#declaration */
 class Declaration extends CSSParserRule<"DECLARATION"> {
 	public value: ComponentValue[] = [];
 	public important = false;
-	constructor(public name: string) {
-		super("DECLARATION", name);
+	constructor(public name: string, debug: Debug) {
+		super("DECLARATION", name, debug);
 	}
 	toJSON() {
 		return {
@@ -1592,11 +1675,11 @@ class Declaration extends CSSParserRule<"DECLARATION"> {
 
 const mirror = { "{": "}", "[": "]", "(": ")" } as const;
 
-/** @see https://drafts.csswg.org/css-syntax/#simple-block  */
+/** @see https://drafts.csswg.org/css-syntax/#simple-block */
 class SimpleBlock extends CSSParserRule {
-	public value: CSSParserRule[] = [];
-	constructor(public name: keyof typeof mirror) {
-		super("BLOCK", name);
+	public value: (CSSParserToken | Func | SimpleBlock)[] = [];
+	constructor(public name: keyof typeof mirror, debug: Debug) {
+		super("BLOCK", name, debug);
 	}
 	toJSON() {
 		return {
@@ -1605,17 +1688,17 @@ class SimpleBlock extends CSSParserRule {
 			value: this.value,
 		};
 	}
-	toSource() {
+	toSource(): string {
 		// todo: validate and remove safely
 		return this.name + this.value.map(x => x.toSource()).join("") + mirror[this.name as keyof typeof mirror];
 	}
 }
 
-/** @see https://drafts.csswg.org/css-syntax/#function  */
+/** @see https://drafts.csswg.org/css-syntax/#function */
 class Func extends CSSParserRule {
 	public value: CSSParserToken[] = [];
-	constructor(public name: string) {
-		super("FUNCTION", name);
+	constructor(public name: string, debug: Debug) {
+		super("FUNCTION", name, debug);
 	}
 	toJSON() {
 		return {
