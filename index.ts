@@ -1,3 +1,14 @@
+class Unreachable extends Error {
+	name = "Unreachable";
+	constructor() {
+		super("Parser reached an unreachable state! This is a bug.");
+	}
+}
+
+export function unreachable(): never {
+	throw new Unreachable();
+}
+
 interface Pos {
 	line?: number;
 	column?: number;
@@ -186,7 +197,6 @@ function tokenize(str: string) {
 		consumeComments();
 		const from = pos();
 		consume();
-		if (code == null) return;
 		if (whitespace(code)) {
 			while (whitespace(next())) consume();
 			const to = pos();
@@ -392,6 +402,8 @@ function tokenize(str: string) {
 				string += String.fromCodePoint(code);
 			}
 		}
+
+		unreachable();
 	}
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-url-token */
@@ -435,6 +447,8 @@ function tokenize(str: string) {
 				token.value += String.fromCodePoint(code);
 			}
 		}
+
+		unreachable();
 	}
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-escaped-code-point */
@@ -537,7 +551,7 @@ function tokenize(str: string) {
 			}
 		}
 
-		return result; // unreachable
+		unreachable();
 	}
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-number */
@@ -637,8 +651,7 @@ function tokenize(str: string) {
 
 	let iterationCount = 0;
 	while (!eof(next())) {
-		// should reasonably be not undefined
-		tokens.push(consumeAToken()!);
+		tokens.push(consumeAToken());
 		iterationCount++;
 		if (iterationCount > codepoints.length * 2) throw "I'm infinite-looping!";
 	}
@@ -1177,8 +1190,9 @@ class TokenStream {
 		return this;
 	}
 	restoreAMark() {
-		if (this.markedIndexes.length) {
-			this.index = this.markedIndexes.pop()!;
+		const index = this.markedIndexes.pop();
+		if (index) {
+			this.index = index;
 			return this;
 		}
 		throw new Error("No marks to restore.");
@@ -1222,7 +1236,7 @@ function consumeAStylesheetsContents(s: TokenStream) {
 		}
 	}
 
-	return rules; // unreachable
+	unreachable();
 }
 
 function consumeAnAtRule(s: TokenStream, nested = false) {
@@ -1413,7 +1427,7 @@ function consumeAListOfComponentValues(s: TokenStream, nested = false, stopToken
 		}
 	}
 
-	return values; // unreachable
+	unreachable();
 }
 
 function consumeAComponentValue(s: TokenStream) {
@@ -1449,7 +1463,7 @@ function consumeASimpleBlock(s: TokenStream): SimpleBlock {
 		}
 	}
 
-	return block; // unreachable
+	unreachable();
 }
 
 /** @see https://drafts.csswg.org/css-syntax/#consume-a-function */
@@ -1471,7 +1485,7 @@ function consumeAFunction(s: TokenStream): Func {
 		}
 	}
 
-	return func; // unreachable
+	unreachable();
 }
 
 export type TopLevel = AtRule | QualifiedRule | Declaration;
