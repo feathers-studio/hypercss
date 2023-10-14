@@ -9,17 +9,27 @@ export function unreachable(): never {
 	throw new Unreachable();
 }
 
-interface Pos {
-	line?: number;
-	column?: number;
+export class Position {
+	constructor(public line: number = -1, public column: number = -1) {}
+	clone() {
+		return new Position(this.line, this.column);
+	}
 }
 
-export interface Debug {
-	from: Pos;
-	to: Pos;
+export class Debug {
+	public from: Position;
+	public to: Position;
+	constructor(from?: Position, to?: Position) {
+		// prevent reuse
+		this.from = from ? from.clone() : new Position();
+		this.to = to ? to.clone() : new Position();
+	}
+	clone() {
+		return new Debug(this.from, this.to);
+	}
 }
 
-const nowhere: Debug = { from: {}, to: {} };
+const dbg = (from?: Position, to?: Position) => new Debug(from, to);
 
 function char(str: string) {
 	return str.charCodeAt(0);
@@ -133,7 +143,7 @@ function tokenize(str: string) {
 	let code: number;
 
 	// Line number information.
-	const position = { line: 1, column: 1 };
+	const position = new Position(1, 1);
 	// The only use of lastLineLength is in reconsume().
 	let lastLineLength = 0;
 	function incrLineno() {
@@ -142,10 +152,8 @@ function tokenize(str: string) {
 		position.column = 0;
 	}
 
-	const pos = () => ({ ...position });
-
 	// unsure why this exists
-	const locstart: Pos = pos();
+	const locstart: Position = position.clone();
 
 	function codepoint(i: number): number {
 		if (i >= codepoints.length) return -1;
@@ -195,108 +203,106 @@ function tokenize(str: string) {
 	/** @see https://drafts.csswg.org/css-syntax/#consume-token */
 	function consumeAToken() {
 		consumeComments();
-		const from = pos();
+		const from = position.clone();
 		consume();
 		if (whitespace(code)) {
 			while (whitespace(next())) consume();
-			const to = pos();
-			return new WhitespaceToken({ from, to });
+			const to = position.clone();
+			return new WhitespaceToken(dbg(from, to));
 		} else if (code == 0x22) return consumeAStringToken(from);
 		else if (code == 0x23) {
 			if (namechar(next()) || areAValidEscape(next(1), next(2))) {
 				const isIdent = wouldStartAnIdentifier(next(1), next(2), next(3));
 				const name = consumeAName();
-				const to = pos();
-				return new HashToken(name, isIdent, { from, to });
-			} else {
-				return new DelimToken(code, { from, to: from });
-			}
+				const to = position.clone();
+				return new HashToken(name, isIdent, dbg(from, to));
+			} else return new DelimToken(code, dbg(from));
 		} else if (code == 0x27) return consumeAStringToken(from);
 		else if (code == 0x28) {
-			const to = pos();
-			return new OpenParenToken({ from, to });
+			const to = position.clone();
+			return new OpenParenToken(dbg(from, to));
 		} else if (code == 0x29) {
-			const to = pos();
-			return new CloseParenToken({ from, to });
+			const to = position.clone();
+			return new CloseParenToken(dbg(from, to));
 		} else if (code == 0x2b) {
 			if (startsWithANumber()) {
 				reconsume();
 				return consumeANumericToken(from);
 			} else {
-				const to = pos();
-				return new DelimToken(code, { from, to });
+				const to = position.clone();
+				return new DelimToken(code, dbg(from, to));
 			}
 		} else if (code == 0x2c) {
-			const to = pos();
-			return new CommaToken({ from, to });
+			const to = position.clone();
+			return new CommaToken(dbg(from, to));
 		} else if (code == 0x2d) {
 			if (startsWithANumber()) {
 				reconsume();
 				return consumeANumericToken(from);
 			} else if (next(1) == 0x2d && next(2) == 0x3e) {
 				consume(2);
-				const to = pos();
-				return new CDCToken({ from, to });
+				const to = position.clone();
+				return new CDCToken(dbg(from, to));
 			} else if (startsWithAnIdentifier()) {
 				reconsume();
 				return consumeAnIdentlikeToken(from);
 			} else {
-				const to = pos();
-				return new DelimToken(code, { from, to });
+				const to = position.clone();
+				return new DelimToken(code, dbg(from, to));
 			}
 		} else if (code == 0x2e) {
 			if (startsWithANumber()) {
 				reconsume();
 				return consumeANumericToken(from);
 			} else {
-				const to = pos();
-				return new DelimToken(code, { from, to });
+				const to = position.clone();
+				return new DelimToken(code, dbg(from, to));
 			}
 		} else if (code == 0x3a) {
-			const to = pos();
-			return new ColonToken({ from, to });
+			const to = position.clone();
+			return new ColonToken(dbg(from, to));
 		} else if (code == 0x3b) {
-			const to = pos();
-			return new SemicolonToken({ from, to });
+			const to = position.clone();
+			return new SemicolonToken(dbg(from, to));
 		} else if (code == 0x3c) {
 			if (next(1) == 0x21 && next(2) == 0x2d && next(3) == 0x2d) {
 				consume(3);
-				const to = pos();
-				return new CDOToken({ from, to });
+				const to = position.clone();
+				return new CDOToken(dbg(from, to));
 			} else {
-				const to = pos();
-				return new DelimToken(code, { from, to });
+				const to = position.clone();
+				return new DelimToken(code, dbg(from, to));
 			}
 		} else if (code == 0x40) {
 			if (wouldStartAnIdentifier(next(1), next(2), next(3))) {
 				const name = consumeAName();
-				const to = pos();
-				return new AtKeywordToken(name, { from, to });
+				const to = position.clone();
+				return new AtKeywordToken(name, dbg(from, to));
 			} else {
-				const to = pos();
-				return new DelimToken(code, { from, to });
+				const to = position.clone();
+				return new DelimToken(code, dbg(from, to));
 			}
 		} else if (code == 0x5b) {
-			const to = pos();
-			return new OpenSquareToken({ from, to });
+			const to = position.clone();
+			return new OpenSquareToken(dbg(from, to));
 		} else if (code == 0x5c) {
 			if (startsWithAValidEscape()) {
 				reconsume();
 				return consumeAnIdentlikeToken(from);
 			} else {
 				parseerror();
-				const to = pos();
-				return new DelimToken(code, { from, to });
+				const to = position.clone();
+				return new DelimToken(code, dbg(from, to));
 			}
 		} else if (code == 0x5d) {
-			const to = pos();
-			return new CloseSquareToken({ from, to });
+			const to = position.clone();
+			return new CloseSquareToken(dbg(from, to));
 		} else if (code == 0x7b) {
-			const to = pos();
-			return new OpenCurlyToken({ from, to });
+			const to = position.clone();
+			return new OpenCurlyToken(dbg(from, to));
 		} else if (code == 0x7d) {
-			const to = pos();
-			return new CloseCurlyToken({ from, to });
+			const to = position.clone();
+			return new CloseCurlyToken(dbg(from, to));
 		} else if (digit(code)) {
 			reconsume();
 			return consumeANumericToken(from);
@@ -311,11 +317,11 @@ function tokenize(str: string) {
 			reconsume();
 			return consumeAnIdentlikeToken(from);
 		} else if (eof()) {
-			const to = pos();
-			return new EOFToken({ from, to });
+			const to = position.clone();
+			return new EOFToken(dbg(from, to));
 		} else {
-			const to = pos();
-			return new DelimToken(code, { from, to });
+			const to = position.clone();
+			return new DelimToken(code, dbg(from, to));
 		}
 	}
 
@@ -337,59 +343,59 @@ function tokenize(str: string) {
 	}
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-numeric-token */
-	function consumeANumericToken(from: Pos) {
+	function consumeANumericToken(from: Position) {
 		const { value, isInteger, sign } = consumeANumber();
 		if (wouldStartAnIdentifier(next(1), next(2), next(3))) {
 			const unit = consumeAName();
-			const to = pos();
-			return new DimensionToken(value, unit, sign, { from, to });
+			const to = position.clone();
+			return new DimensionToken(value, unit, sign, dbg(from, to));
 		} else if (next() == 0x25) {
 			consume();
-			const to = pos();
-			return new PercentageToken(value, sign, { from, to });
+			const to = position.clone();
+			return new PercentageToken(value, sign, dbg(from, to));
 		} else {
-			const to = pos();
-			return new NumberToken(value, isInteger, sign, { from, to });
+			const to = position.clone();
+			return new NumberToken(value, isInteger, sign, dbg(from, to));
 		}
 	}
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-ident-like-token */
-	function consumeAnIdentlikeToken(from: Pos) {
+	function consumeAnIdentlikeToken(from: Position) {
 		const str = consumeAName();
 		if (str.toLowerCase() == "url" && next() == 0x28) {
 			consume();
 			while (whitespace(next(1)) && whitespace(next(2))) consume();
 			if (next() == 0x22 || next() == 0x27) {
-				const to = pos();
-				return new FunctionToken(str, { from, to });
+				const to = position.clone();
+				return new FunctionToken(str, dbg(from, to));
 			} else if (whitespace(next()) && (next(2) == 0x22 || next(2) == 0x27)) {
-				const to = pos();
-				return new FunctionToken(str, { from, to });
+				const to = position.clone();
+				return new FunctionToken(str, dbg(from, to));
 			} else {
 				return consumeAURLToken(from);
 			}
 		} else if (next() == 0x28) {
 			consume();
-			const to = pos();
-			return new FunctionToken(str, { from, to });
+			const to = position.clone();
+			return new FunctionToken(str, dbg(from, to));
 		} else {
-			const to = pos();
-			return new IdentToken(str, { from, to });
+			const to = position.clone();
+			return new IdentToken(str, dbg(from, to));
 		}
 	}
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-string-token */
-	function consumeAStringToken(from: Pos, endingCodePoint = code) {
+	function consumeAStringToken(from: Position, endingCodePoint = code) {
 		let string = "";
 		while (consume()) {
 			if (code == endingCodePoint || eof() || code == null) {
-				const to = pos();
-				return new StringToken(string, { from, to });
+				const to = position.clone();
+				return new StringToken(string, dbg(from, to));
 			} else if (newline(code)) {
 				parseerror();
 				reconsume();
-				const to = pos();
-				return new BadStringToken({ from, to });
+				const to = position.clone();
+				return new BadStringToken(dbg(from, to));
 			} else if (code == 0x5c) {
 				if (eof(next())) {
 					donothing();
@@ -407,41 +413,41 @@ function tokenize(str: string) {
 	}
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-url-token */
-	function consumeAURLToken(from: Pos) {
-		const to = pos();
-		const token = new URLToken("", { from, to });
+	function consumeAURLToken(from: Position) {
+		const to = position.clone();
+		const token = new URLToken("", dbg(from, to));
 		while (whitespace(next())) consume();
 		if (eof(next())) return token;
 		while (consume()) {
 			if (code == 0x29 || eof()) {
-				const to = pos();
+				const to = position.clone();
 				token.debug.to = to;
 				return token;
 			} else if (whitespace(code)) {
 				while (whitespace(next())) consume();
 				if (next() == 0x29 || eof(next())) {
 					consume();
-					const to = pos();
+					const to = position.clone();
 					token.debug.to = to;
 					return token;
 				} else {
 					consumeTheRemnantsOfABadURL();
-					const to = pos();
-					return new BadURLToken({ from, to });
+					const to = position.clone();
+					return new BadURLToken(dbg(from, to));
 				}
 			} else if (code == 0x22 || code == 0x27 || code == 0x28 || nonprintable(code)) {
 				parseerror();
 				consumeTheRemnantsOfABadURL();
-				const to = pos();
-				return new BadURLToken({ from, to });
+				const to = position.clone();
+				return new BadURLToken(dbg(from, to));
 			} else if (code == 0x5c) {
 				if (startsWithAValidEscape()) {
 					token.value += String.fromCodePoint(consumeEscape());
 				} else {
 					parseerror();
 					consumeTheRemnantsOfABadURL();
-					const to = pos();
-					return new BadURLToken({ from, to });
+					const to = position.clone();
+					return new BadURLToken(dbg(from, to));
 				}
 			} else {
 				token.value += String.fromCodePoint(code);
@@ -600,7 +606,7 @@ function tokenize(str: string) {
 	}
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-a-unicode-range-token */
-	function consumeAUnicodeRangeToken(from: Pos) {
+	function consumeAUnicodeRangeToken(from: Position) {
 		let firstSegment = "";
 		let start = "";
 		let end = "";
@@ -618,8 +624,8 @@ function tokenize(str: string) {
 			}
 			start = firstSegment + String.fromCodePoint(0x30).repeat(wildcardLen);
 			end = firstSegment + String.fromCodePoint(0x46).repeat(wildcardLen);
-			const to = pos();
-			return new UnicodeRangeToken(start, end, { from, to });
+			const to = position.clone();
+			return new UnicodeRangeToken(start, end, dbg(from, to));
 		}
 		start = firstSegment;
 		if (next(1) == 0x2d && hexdigit(next(2))) {
@@ -628,11 +634,11 @@ function tokenize(str: string) {
 				consume();
 				end += String.fromCodePoint(code);
 			}
-			const to = pos();
-			return new UnicodeRangeToken(start, end, { from, to });
+			const to = position.clone();
+			return new UnicodeRangeToken(start, end, dbg(from, to));
 		}
-		const to = pos();
-		return new UnicodeRangeToken(start, start, { from, to });
+		const to = position.clone();
+		return new UnicodeRangeToken(start, start, dbg(from, to));
 	}
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-remnants-of-bad-url */
@@ -661,7 +667,7 @@ function tokenize(str: string) {
 class CSSParserToken {
 	public value: unknown;
 
-	constructor(public type: string, public debug: Debug = nowhere) {}
+	constructor(public type: string, public debug: Debug = dbg()) {}
 
 	toJSON() {
 		return {
@@ -678,7 +684,7 @@ class CSSParserToken {
 }
 
 class BadStringToken extends CSSParserToken {
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("BADSTRING", debug);
 	}
 	toSource() {
@@ -688,7 +694,7 @@ class BadStringToken extends CSSParserToken {
 
 class BadURLToken extends CSSParserToken {
 	public tokenType: string = "BADURL";
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("BADURL", debug);
 	}
 	toSource() {
@@ -697,7 +703,7 @@ class BadURLToken extends CSSParserToken {
 }
 
 class WhitespaceToken extends CSSParserToken {
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("WHITESPACE", debug);
 	}
 	toString() {
@@ -709,7 +715,7 @@ class WhitespaceToken extends CSSParserToken {
 }
 
 class CDOToken extends CSSParserToken {
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("CDO", debug);
 	}
 	toSource() {
@@ -718,7 +724,7 @@ class CDOToken extends CSSParserToken {
 }
 
 class CDCToken extends CSSParserToken {
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("CDC", debug);
 	}
 	toSource() {
@@ -728,7 +734,7 @@ class CDCToken extends CSSParserToken {
 
 /** @see https://drafts.csswg.org/css-syntax/#typedef-unicode-range-token */
 class UnicodeRangeToken extends CSSParserToken {
-	constructor(public start: string, public end: string, debug: Debug = nowhere) {
+	constructor(public start: string, public end: string, debug: Debug = dbg()) {
 		super("UNICODE-RANGE", debug);
 	}
 	toSource(): string {
@@ -738,7 +744,7 @@ class UnicodeRangeToken extends CSSParserToken {
 }
 
 class ColonToken extends CSSParserToken {
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("COLON", debug);
 	}
 	toSource() {
@@ -747,7 +753,7 @@ class ColonToken extends CSSParserToken {
 }
 
 class SemicolonToken extends CSSParserToken {
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("SEMICOLON", debug);
 	}
 	toSource() {
@@ -756,7 +762,7 @@ class SemicolonToken extends CSSParserToken {
 }
 
 class CommaToken extends CSSParserToken {
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("COMMA", debug);
 	}
 	toSource() {
@@ -767,7 +773,7 @@ class CommaToken extends CSSParserToken {
 class OpenCurlyToken extends CSSParserToken {
 	public grouping = true;
 	public mirror: typeof CloseCurlyToken;
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("OPEN-CURLY", debug);
 		this.mirror = CloseCurlyToken;
 	}
@@ -777,7 +783,7 @@ class OpenCurlyToken extends CSSParserToken {
 }
 
 class CloseCurlyToken extends CSSParserToken {
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("CLOSE-CURLY", debug);
 	}
 	toSource() {
@@ -788,7 +794,7 @@ class CloseCurlyToken extends CSSParserToken {
 class OpenSquareToken extends CSSParserToken {
 	public grouping = true;
 	public mirror: typeof CloseSquareToken;
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("OPEN-SQUARE", debug);
 		this.mirror = CloseSquareToken;
 	}
@@ -798,7 +804,7 @@ class OpenSquareToken extends CSSParserToken {
 }
 
 class CloseSquareToken extends CSSParserToken {
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("CLOSE-SQUARE", debug);
 	}
 	toSource() {
@@ -809,7 +815,7 @@ class CloseSquareToken extends CSSParserToken {
 class OpenParenToken extends CSSParserToken {
 	public grouping = true;
 	public mirror: typeof CloseParenToken;
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("OPEN-PAREN", debug);
 		this.mirror = CloseParenToken;
 	}
@@ -819,7 +825,7 @@ class OpenParenToken extends CSSParserToken {
 }
 
 class CloseParenToken extends CSSParserToken {
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("CLOSE-PAREN", debug);
 	}
 	toSource() {
@@ -828,7 +834,7 @@ class CloseParenToken extends CSSParserToken {
 }
 
 class EOFToken extends CSSParserToken {
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("EOF", debug);
 	}
 	toSource() {
@@ -838,7 +844,7 @@ class EOFToken extends CSSParserToken {
 
 class DelimToken extends CSSParserToken {
 	public value: string;
-	constructor(val: number | string, debug: Debug = nowhere) {
+	constructor(val: number | string, debug: Debug = dbg()) {
 		super("DELIM", debug);
 		if (typeof val == "number") {
 			val = String.fromCodePoint(val);
@@ -864,7 +870,7 @@ class DelimToken extends CSSParserToken {
 }
 
 class IdentToken extends CSSParserToken {
-	constructor(public value: string, debug: Debug = nowhere) {
+	constructor(public value: string, debug: Debug = dbg()) {
 		super("IDENT", debug);
 	}
 	toString() {
@@ -884,7 +890,7 @@ class IdentToken extends CSSParserToken {
 
 class FunctionToken extends CSSParserToken {
 	public mirror: typeof CloseParenToken;
-	constructor(public value: string, debug: Debug = nowhere) {
+	constructor(public value: string, debug: Debug = dbg()) {
 		super("FUNCTION", debug);
 		this.mirror = CloseParenToken;
 	}
@@ -904,7 +910,7 @@ class FunctionToken extends CSSParserToken {
 }
 
 class AtKeywordToken extends CSSParserToken {
-	constructor(public value: string, debug: Debug = nowhere) {
+	constructor(public value: string, debug: Debug = dbg()) {
 		super("AT-KEYWORD", debug);
 	}
 	toString() {
@@ -923,7 +929,7 @@ class AtKeywordToken extends CSSParserToken {
 }
 
 class HashToken extends CSSParserToken {
-	constructor(public value: string, public isIdent: boolean, debug: Debug = nowhere) {
+	constructor(public value: string, public isIdent: boolean, debug: Debug = dbg()) {
 		super("HASH", debug);
 	}
 	toString() {
@@ -946,7 +952,7 @@ class HashToken extends CSSParserToken {
 }
 
 class StringToken extends CSSParserToken {
-	constructor(public value: string, debug: Debug = nowhere) {
+	constructor(public value: string, debug: Debug = dbg()) {
 		super("STRING", debug);
 	}
 	toString() {
@@ -965,7 +971,7 @@ class StringToken extends CSSParserToken {
 }
 
 class URLToken extends CSSParserToken {
-	constructor(public value: string, debug: Debug = nowhere) {
+	constructor(public value: string, debug: Debug = dbg()) {
 		super("URL", debug);
 	}
 	toString() {
@@ -984,7 +990,7 @@ class URLToken extends CSSParserToken {
 }
 
 class NumberToken extends CSSParserToken {
-	constructor(public value: number, public isInteger: boolean, public sign?: string, debug: Debug = nowhere) {
+	constructor(public value: number, public isInteger: boolean, public sign?: string, debug: Debug = dbg()) {
 		super("NUMBER", debug);
 	}
 	toString() {
@@ -1007,7 +1013,7 @@ class NumberToken extends CSSParserToken {
 }
 
 class PercentageToken extends CSSParserToken {
-	constructor(public value: number, public sign?: string, debug: Debug = nowhere) {
+	constructor(public value: number, public sign?: string, debug: Debug = dbg()) {
 		super("PERCENTAGE", debug);
 	}
 	toString() {
@@ -1028,7 +1034,7 @@ class PercentageToken extends CSSParserToken {
 }
 
 class DimensionToken extends CSSParserToken {
-	constructor(public value: number, public unit: string, public sign?: string, debug: Debug = nowhere) {
+	constructor(public value: number, public unit: string, public sign?: string, debug: Debug = dbg()) {
 		super("DIMENSION", debug);
 	}
 	toString() {
@@ -1152,7 +1158,7 @@ export {
 	PercentageToken,
 	SemicolonToken,
 	StringToken,
-	tokenize,
+	tokenise,
 	URLToken,
 	WhitespaceToken,
 };
@@ -1161,17 +1167,16 @@ export {
 class TokenStream {
 	public index: number;
 	public markedIndexes: number[];
-	public pos: Pos;
+	public pos: Position;
 	constructor(public tokens: CSSParserToken[]) {
 		// Assume that tokens is an array.
 		this.index = 0;
-		this.pos = { line: 0, column: 0 };
+		this.pos = new Position(0, 0);
 		this.markedIndexes = [];
 	}
 	nextToken() {
 		if (this.index < this.tokens.length) return this.tokens[this.index];
-		const pos = { ...this.pos };
-		return new EOFToken({ from: pos, to: pos });
+		return new EOFToken(dbg(this.pos));
 	}
 	empty() {
 		return this.index >= this.tokens.length;
@@ -1179,7 +1184,7 @@ class TokenStream {
 	consumeAToken() {
 		const tok = this.nextToken();
 		this.index++;
-		this.pos = { ...tok.debug.to };
+		this.pos = tok.debug.to.clone();
 		return tok;
 	}
 	discardAToken() {
@@ -1244,8 +1249,7 @@ function consumeAnAtRule(s: TokenStream, nested = false) {
 	if (!(token instanceof AtKeywordToken)) {
 		throw new Error("consumeAnAtRule() called with an invalid token stream state.");
 	}
-	const from = { ...s.pos };
-	const rule = new AtRule(token.value, { from, to: from });
+	const rule = new AtRule(token.value, dbg(s.pos));
 	while (1) {
 		const token = s.nextToken();
 		if (token instanceof SemicolonToken || token instanceof EOFToken) {
@@ -1267,8 +1271,7 @@ function consumeAnAtRule(s: TokenStream, nested = false) {
 }
 
 function consumeAQualifiedRule(s: TokenStream, nested = false, stopToken = EOFToken) {
-	const from = { ...s.pos };
-	const rule = new QualifiedRule({ from, to: from });
+	const rule = new QualifiedRule(dbg(s.pos));
 	while (1) {
 		const token = s.nextToken();
 		if (token instanceof EOFToken || token instanceof stopToken) {
@@ -1287,7 +1290,7 @@ function consumeAQualifiedRule(s: TokenStream, nested = false, stopToken = EOFTo
 			}
 			[rule.declarations, rule.rules] = consumeABlock(s);
 			const filtered = filterValid(rule);
-			if (filtered) filtered.debug.to = { ...token.debug.to };
+			if (filtered) filtered.debug.to = token.debug.to.clone();
 			return filtered;
 		} else {
 			rule.prelude.push(consumeAComponentValue(s));
@@ -1353,7 +1356,7 @@ function consumeADeclaration(s: TokenStream, nested = false) {
 	let decl;
 	if (s.nextToken() instanceof IdentToken) {
 		const token = s.consumeAToken() as IdentToken;
-		decl = new Declaration(token.value, { ...token.debug });
+		decl = new Declaration(token.value, token.debug.clone());
 	} else {
 		consumeTheRemnantsOfABadDeclaration(s, nested);
 		return;
@@ -1446,7 +1449,7 @@ function consumeASimpleBlock(s: TokenStream): SimpleBlock {
 		throw new Error("consumeASimpleBlock() called with an invalid token stream state.");
 	}
 	const start = s.nextToken();
-	const block = new SimpleBlock(start.toSource() as keyof typeof mirror, { ...start.debug });
+	const block = new SimpleBlock(start.toSource() as keyof typeof mirror, start.debug.clone());
 	s.discardAToken();
 	while (1) {
 		const token = s.nextToken();
@@ -1456,7 +1459,7 @@ function consumeASimpleBlock(s: TokenStream): SimpleBlock {
 			token instanceof start.mirror
 		) {
 			s.discardAToken();
-			block.debug.to = { ...token.debug.from };
+			block.debug.to = token.debug.from.clone();
 			return block;
 		} else {
 			block.value.push(consumeAComponentValue(s));
@@ -1473,12 +1476,12 @@ function consumeAFunction(s: TokenStream): Func {
 	}
 	// safe assertion, verified above
 	const token = s.consumeAToken() as FunctionToken;
-	const func = new Func(token.value, { ...token.debug });
+	const func = new Func(token.value, token.debug.clone());
 	while (1) {
 		const token = s.nextToken();
 		if (token instanceof EOFToken || token instanceof CloseParenToken) {
 			s.discardAToken();
-			func.debug.to = { ...token.debug.from };
+			func.debug.to = token.debug.from.clone();
 			return func;
 		} else {
 			func.value.push(consumeAComponentValue(s));
@@ -1532,9 +1535,9 @@ function normalizeInput(input: string | TokenStream | CSSParserToken[]) {
 /** @see https://drafts.csswg.org/css-syntax/#parse-a-stylesheet */
 function parseAStylesheet(s: string | TokenStream) {
 	s = normalizeInput(s);
-	const sheet = new Stylesheet({ from: { line: 0, column: 0 }, to: { line: 0, column: 0 } });
+	const sheet = new Stylesheet(dbg(new Position(0, 0)));
 	sheet.rules = consumeAStylesheetsContents(s);
-	sheet.debug.to = { ...s.pos };
+	sheet.debug.to = s.pos.clone();
 	return sheet;
 }
 
@@ -1605,9 +1608,9 @@ function parseACommaSeparatedListOfComponentValues(s: TokenStream) {
 }
 
 class CSSParserRule<Type extends string = string> {
-	constructor(public type: Type, public name: string, public debug: Debug = nowhere) {}
+	constructor(public type: Type, public name: string, public debug: Debug = dbg()) {}
 	toSource(ident: number = 0) {
-		return "";
+		return "".repeat(ident);
 	}
 	toString(indent?: number) {
 		return JSON.stringify(this, null, indent);
@@ -1617,7 +1620,7 @@ class CSSParserRule<Type extends string = string> {
 /** @see https://drafts.csswg.org/css-syntax/#css-stylesheet */
 class Stylesheet extends CSSParserRule {
 	public rules: CSSParserRule[] = [];
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("STYLESHEET", "Stylesheet", debug);
 	}
 	toJSON() {
@@ -1640,7 +1643,7 @@ class AtRule extends CSSParserRule<"AT-RULE"> {
 	public prelude: CSSParserToken[] = [];
 	public declarations: CSSParserRule[] = [];
 	public rules: CSSParserRule[] = [];
-	constructor(public name: string, debug: Debug = nowhere) {
+	constructor(public name: string, debug: Debug = dbg()) {
 		super("AT-RULE", name, debug);
 	}
 	toJSON() {
@@ -1677,7 +1680,7 @@ class QualifiedRule extends CSSParserRule<"QUALIFIED-RULE"> {
 	public prelude: CSSParserToken[] = [];
 	public declarations: CSSParserRule[] = [];
 	public rules: CSSParserRule[] = [];
-	constructor(debug: Debug = nowhere) {
+	constructor(debug: Debug = dbg()) {
 		super("QUALIFIED-RULE", "QualifiedRule", debug);
 	}
 	toJSON() {
@@ -1714,7 +1717,7 @@ type ComponentValue = PreservedToken | Func | SimpleBlock;
 class Declaration extends CSSParserRule<"DECLARATION"> {
 	public value: ComponentValue[] = [];
 	public important = false;
-	constructor(public name: string, debug: Debug = nowhere) {
+	constructor(public name: string, debug: Debug = dbg()) {
 		super("DECLARATION", name, debug);
 	}
 	toJSON() {
@@ -1742,7 +1745,7 @@ const mirror = { "{": "}", "[": "]", "(": ")" } as const;
 /** @see https://drafts.csswg.org/css-syntax/#simple-block */
 class SimpleBlock extends CSSParserRule {
 	public value: (CSSParserToken | Func | SimpleBlock)[] = [];
-	constructor(public name: keyof typeof mirror, debug: Debug = nowhere) {
+	constructor(public name: keyof typeof mirror, debug: Debug = dbg()) {
 		super("BLOCK", name, debug);
 	}
 	toJSON() {
@@ -1762,7 +1765,7 @@ class SimpleBlock extends CSSParserRule {
 /** @see https://drafts.csswg.org/css-syntax/#function */
 class Func extends CSSParserRule {
 	public value: CSSParserToken[] = [];
-	constructor(public name: string, debug: Debug = nowhere) {
+	constructor(public name: string, debug: Debug = dbg()) {
 		super("FUNCTION", name, debug);
 	}
 	toJSON() {
