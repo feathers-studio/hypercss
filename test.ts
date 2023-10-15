@@ -17,6 +17,7 @@ import {
 	DelimToken,
 	Debug,
 	Position,
+	HashToken,
 } from "./index.ts";
 
 const ws = new WhitespaceToken();
@@ -32,9 +33,7 @@ function destroyExcluded<O>(obj: O, exclude: unknown[]): void {
 }
 
 const assert = <T>(actual: T, expected: T) => (
-	destroyExcluded(actual, ["debug"]),
-	destroyExcluded(expected, ["debug"]),
-	assertEquals(actual, expected)
+	destroyExcluded(actual, ["debug"]), destroyExcluded(expected, ["debug"]), assertEquals(actual, expected)
 );
 
 Deno.test("Rule with ident token", () => {
@@ -181,5 +180,28 @@ Deno.test("unicode ranges (unicodeRangesAllowed: true)", () => {
 
 	const parsed = parseAStylesheet(src, { unicodeRangesAllowed: true });
 	assert(parsed.toSource(), expect);
+	assert(parsed, expected);
+});
+
+Deno.test("HashToken in prelude", () => {
+	const src = `h1 .class #\\36 33456 {
+}`;
+
+	const qualified = new QualifiedRule();
+	qualified.prelude = [
+		new IdentToken("h1"),
+		ws,
+		new DelimToken("."),
+		new IdentToken("class"),
+		ws,
+		new HashToken("633456", true),
+		ws,
+	];
+
+	const expected = new Stylesheet();
+	expected.rules = [qualified];
+
+	const parsed = parseAStylesheet(src);
+	assert(parsed.toSource(), src);
 	assert(parsed, expected);
 });
