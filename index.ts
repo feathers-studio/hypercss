@@ -202,9 +202,12 @@ function tokenise(str: string, opts?: ParseOpts) {
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-token */
 	function consumeAToken(opts?: ParseOpts) {
-		consumeComments();
 		const from = position.clone();
 		consume();
+		if (code == 0x2f && next() == 0x2a) {
+			consume(); // discard /*
+			return consumeComment(from);
+		}
 		if (whitespace(code)) {
 			while (whitespace(next())) consume();
 			const to = position.clone();
@@ -326,18 +329,21 @@ function tokenise(str: string, opts?: ParseOpts) {
 	}
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-comment */
-	function consumeComments() {
-		while (next(1) == 0x2f && next(2) == 0x2a) {
-			consume(2);
-			while (true) {
+	function consumeComment(from: Position) {
+		let result = "";
+		while (true) {
+			consume();
+			if (code == 0x2a && next(1) == 0x2f) {
+				const to = position.clone();
 				consume();
-				if (code == 0x2a && next() == 0x2f) {
-					consume();
-					break;
-				} else if (eof()) {
-					parseerror();
-					return;
-				}
+				return new CommentToken(result, dbg(from, to));
+			} else if (eof(next())) {
+				// https://www.w3.org/TR/CSS2/syndata.html#unexpected-eof
+				parseerror();
+				const to = position.clone();
+				return new CommentToken(result, dbg(from, to));
+			} else {
+				result += String.fromCodePoint(code);
 			}
 		}
 	}
@@ -702,6 +708,16 @@ class BadURLToken extends CSSParserToken {
 	}
 }
 
+class CommentToken extends CSSParserToken {
+	public tokenType = "COMMENT";
+	constructor(public value: string, debug?: Debug) {
+		super("WHITESPACE", debug);
+	}
+	toSource() {
+		return "/*" + this.value + "*/";
+	}
+}
+
 class WhitespaceToken extends CSSParserToken {
 	constructor(debug?: Debug) {
 		super("WHITESPACE", debug);
@@ -1027,6 +1043,7 @@ class DimensionToken extends CSSParserToken {
 type Tokens =
 	| BadStringToken
 	| BadURLToken
+	| CommentToken
 	| WhitespaceToken
 	| CDOToken
 	| CDCToken
@@ -1124,6 +1141,7 @@ export {
 	StringToken,
 	tokenise,
 	URLToken,
+	CommentToken,
 	WhitespaceToken,
 };
 
