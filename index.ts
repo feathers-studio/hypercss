@@ -610,8 +610,7 @@ function tokenise(str: string, opts?: ParseOpts) {
 		let firstSegment = "";
 		let start = "";
 		let end = "";
-		consume();
-		consume();
+		consume(2);
 		while (hexdigit(next()) && firstSegment.length <= 6) {
 			consume();
 			firstSegment += String.fromCodePoint(code);
@@ -672,6 +671,7 @@ class CSSParserToken {
 	toJSON() {
 		return {
 			type: this.type,
+			value: this.value,
 			debug: this.debug,
 		};
 	}
@@ -684,7 +684,7 @@ class CSSParserToken {
 }
 
 class BadStringToken extends CSSParserToken {
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("BADSTRING", debug);
 	}
 	toSource() {
@@ -694,7 +694,7 @@ class BadStringToken extends CSSParserToken {
 
 class BadURLToken extends CSSParserToken {
 	public tokenType: string = "BADURL";
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("BADURL", debug);
 	}
 	toSource() {
@@ -703,7 +703,7 @@ class BadURLToken extends CSSParserToken {
 }
 
 class WhitespaceToken extends CSSParserToken {
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("WHITESPACE", debug);
 	}
 	toString() {
@@ -715,7 +715,7 @@ class WhitespaceToken extends CSSParserToken {
 }
 
 class CDOToken extends CSSParserToken {
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("CDO", debug);
 	}
 	toSource() {
@@ -724,7 +724,7 @@ class CDOToken extends CSSParserToken {
 }
 
 class CDCToken extends CSSParserToken {
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("CDC", debug);
 	}
 	toSource() {
@@ -734,7 +734,7 @@ class CDCToken extends CSSParserToken {
 
 /** @see https://drafts.csswg.org/css-syntax/#typedef-unicode-range-token */
 class UnicodeRangeToken extends CSSParserToken {
-	constructor(public start: string, public end: string, debug: Debug = dbg()) {
+	constructor(public start: string, public end: string, debug?: Debug) {
 		super("UNICODE-RANGE", debug);
 	}
 	toSource(): string {
@@ -744,7 +744,7 @@ class UnicodeRangeToken extends CSSParserToken {
 }
 
 class ColonToken extends CSSParserToken {
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("COLON", debug);
 	}
 	toSource() {
@@ -753,7 +753,7 @@ class ColonToken extends CSSParserToken {
 }
 
 class SemicolonToken extends CSSParserToken {
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("SEMICOLON", debug);
 	}
 	toSource() {
@@ -762,7 +762,7 @@ class SemicolonToken extends CSSParserToken {
 }
 
 class CommaToken extends CSSParserToken {
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("COMMA", debug);
 	}
 	toSource() {
@@ -773,7 +773,7 @@ class CommaToken extends CSSParserToken {
 class OpenCurlyToken extends CSSParserToken {
 	public grouping = true;
 	public mirror: typeof CloseCurlyToken;
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("OPEN-CURLY", debug);
 		this.mirror = CloseCurlyToken;
 	}
@@ -783,7 +783,7 @@ class OpenCurlyToken extends CSSParserToken {
 }
 
 class CloseCurlyToken extends CSSParserToken {
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("CLOSE-CURLY", debug);
 	}
 	toSource() {
@@ -794,7 +794,7 @@ class CloseCurlyToken extends CSSParserToken {
 class OpenSquareToken extends CSSParserToken {
 	public grouping = true;
 	public mirror: typeof CloseSquareToken;
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("OPEN-SQUARE", debug);
 		this.mirror = CloseSquareToken;
 	}
@@ -804,7 +804,7 @@ class OpenSquareToken extends CSSParserToken {
 }
 
 class CloseSquareToken extends CSSParserToken {
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("CLOSE-SQUARE", debug);
 	}
 	toSource() {
@@ -815,7 +815,7 @@ class CloseSquareToken extends CSSParserToken {
 class OpenParenToken extends CSSParserToken {
 	public grouping = true;
 	public mirror: typeof CloseParenToken;
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("OPEN-PAREN", debug);
 		this.mirror = CloseParenToken;
 	}
@@ -825,7 +825,7 @@ class OpenParenToken extends CSSParserToken {
 }
 
 class CloseParenToken extends CSSParserToken {
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("CLOSE-PAREN", debug);
 	}
 	toSource() {
@@ -834,7 +834,7 @@ class CloseParenToken extends CSSParserToken {
 }
 
 class EOFToken extends CSSParserToken {
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("EOF", debug);
 	}
 	toSource() {
@@ -844,7 +844,7 @@ class EOFToken extends CSSParserToken {
 
 class DelimToken extends CSSParserToken {
 	public value: string;
-	constructor(val: number | string, debug: Debug = dbg()) {
+	constructor(val: number | string, debug?: Debug) {
 		super("DELIM", debug);
 		if (typeof val == "number") {
 			val = String.fromCodePoint(val);
@@ -856,13 +856,7 @@ class DelimToken extends CSSParserToken {
 	toString() {
 		return `DELIM(${this.value})`;
 	}
-	toJSON() {
-		return {
-			type: this.type,
-			value: this.value,
-			debug: this.debug,
-		};
-	}
+
 	toSource() {
 		if (this.value == "\\") return "\\\n";
 		return this.value;
@@ -870,19 +864,13 @@ class DelimToken extends CSSParserToken {
 }
 
 class IdentToken extends CSSParserToken {
-	constructor(public value: string, debug: Debug = dbg()) {
+	constructor(public value: string, debug?: Debug) {
 		super("IDENT", debug);
 	}
 	toString() {
 		return `IDENT(${this.value})`;
 	}
-	toJSON() {
-		return {
-			type: this.type,
-			value: this.value,
-			debug: this.debug,
-		};
-	}
+
 	toSource() {
 		return escapeIdent(this.value);
 	}
@@ -890,46 +878,34 @@ class IdentToken extends CSSParserToken {
 
 class FunctionToken extends CSSParserToken {
 	public mirror: typeof CloseParenToken;
-	constructor(public value: string, debug: Debug = dbg()) {
+	constructor(public value: string, debug?: Debug) {
 		super("FUNCTION", debug);
 		this.mirror = CloseParenToken;
 	}
 	toString() {
 		return `FUNCTION(${this.value})`;
 	}
-	toJSON() {
-		return {
-			type: this.type,
-			value: this.value,
-			debug: this.debug,
-		};
-	}
+
 	toSource() {
 		return escapeIdent(this.value) + "(";
 	}
 }
 
 class AtKeywordToken extends CSSParserToken {
-	constructor(public value: string, debug: Debug = dbg()) {
+	constructor(public value: string, debug?: Debug) {
 		super("AT-KEYWORD", debug);
 	}
 	toString() {
 		return `AT(${this.value})`;
 	}
-	toJSON() {
-		return {
-			type: this.type,
-			value: this.value,
-			debug: this.debug,
-		};
-	}
+
 	toSource() {
 		return "@" + escapeIdent(this.value);
 	}
 }
 
 class HashToken extends CSSParserToken {
-	constructor(public value: string, public isIdent: boolean, debug: Debug = dbg()) {
+	constructor(public value: string, public isIdent: boolean, debug?: Debug) {
 		super("HASH", debug);
 	}
 	toString() {
@@ -952,45 +928,33 @@ class HashToken extends CSSParserToken {
 }
 
 class StringToken extends CSSParserToken {
-	constructor(public value: string, debug: Debug = dbg()) {
+	constructor(public value: string, debug?: Debug) {
 		super("STRING", debug);
 	}
 	toString() {
 		return `STRING(${this.value})`;
 	}
-	toJSON() {
-		return {
-			type: this.type,
-			value: this.value,
-			debug: this.debug,
-		};
-	}
+
 	toSource() {
 		return `"${escapeString(this.value)}"`;
 	}
 }
 
 class URLToken extends CSSParserToken {
-	constructor(public value: string, debug: Debug = dbg()) {
+	constructor(public value: string, debug?: Debug) {
 		super("URL", debug);
 	}
 	toString() {
 		return `URL(${this.value})`;
 	}
-	toJSON() {
-		return {
-			type: this.type,
-			value: this.value,
-			debug: this.debug,
-		};
-	}
+
 	toSource() {
 		return `url("${escapeString(this.value)}")`;
 	}
 }
 
 class NumberToken extends CSSParserToken {
-	constructor(public value: number, public isInteger: boolean, public sign?: string, debug: Debug = dbg()) {
+	constructor(public value: number, public isInteger: boolean, public sign?: string, debug?: Debug) {
 		super("NUMBER", debug);
 	}
 	toString() {
@@ -1013,7 +977,7 @@ class NumberToken extends CSSParserToken {
 }
 
 class PercentageToken extends CSSParserToken {
-	constructor(public value: number, public sign?: string, debug: Debug = dbg()) {
+	constructor(public value: number, public sign?: string, debug?: Debug) {
 		super("PERCENTAGE", debug);
 	}
 	toString() {
@@ -1034,7 +998,7 @@ class PercentageToken extends CSSParserToken {
 }
 
 class DimensionToken extends CSSParserToken {
-	constructor(public value: number, public unit: string, public sign?: string, debug: Debug = dbg()) {
+	constructor(public value: number, public unit: string, public sign?: string, debug?: Debug) {
 		super("DIMENSION", debug);
 	}
 	toString() {
@@ -1625,7 +1589,7 @@ class CSSParserRule<Type extends string = string> {
 /** @see https://drafts.csswg.org/css-syntax/#css-stylesheet */
 class Stylesheet extends CSSParserRule {
 	public rules: CSSParserRule[] = [];
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("STYLESHEET", "Stylesheet", debug);
 	}
 	toJSON() {
@@ -1648,7 +1612,7 @@ class AtRule extends CSSParserRule<"AT-RULE"> {
 	public prelude: CSSParserToken[] = [];
 	public declarations: CSSParserRule[] = [];
 	public rules: CSSParserRule[] = [];
-	constructor(public name: string, debug: Debug = dbg()) {
+	constructor(public name: string, debug?: Debug) {
 		super("AT-RULE", name, debug);
 	}
 	toJSON() {
@@ -1685,7 +1649,7 @@ class QualifiedRule extends CSSParserRule<"QUALIFIED-RULE"> {
 	public prelude: CSSParserToken[] = [];
 	public declarations: CSSParserRule[] = [];
 	public rules: CSSParserRule[] = [];
-	constructor(debug: Debug = dbg()) {
+	constructor(debug?: Debug) {
 		super("QUALIFIED-RULE", "QualifiedRule", debug);
 	}
 	toJSON() {
@@ -1722,7 +1686,7 @@ type ComponentValue = PreservedToken | Func | SimpleBlock;
 class Declaration extends CSSParserRule<"DECLARATION"> {
 	public value: ComponentValue[] = [];
 	public important = false;
-	constructor(public name: string, debug: Debug = dbg()) {
+	constructor(public name: string, debug?: Debug) {
 		super("DECLARATION", name, debug);
 	}
 	toJSON() {
@@ -1750,7 +1714,7 @@ const mirror = { "{": "}", "[": "]", "(": ")" } as const;
 /** @see https://drafts.csswg.org/css-syntax/#simple-block */
 class SimpleBlock extends CSSParserRule {
 	public value: (CSSParserToken | Func | SimpleBlock)[] = [];
-	constructor(public name: keyof typeof mirror, debug: Debug = dbg()) {
+	constructor(public name: keyof typeof mirror, debug?: Debug) {
 		super("BLOCK", name, debug);
 	}
 	toJSON() {
@@ -1770,7 +1734,7 @@ class SimpleBlock extends CSSParserRule {
 /** @see https://drafts.csswg.org/css-syntax/#function */
 class Func extends CSSParserRule {
 	public value: CSSParserToken[] = [];
-	constructor(public name: string, debug: Debug = dbg()) {
+	constructor(public name: string, debug?: Debug) {
 		super("FUNCTION", name, debug);
 	}
 	toJSON() {
