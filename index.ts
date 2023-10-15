@@ -10,9 +10,9 @@ export function unreachable(): never {
 }
 
 export class Position {
-	constructor(public line: number = -1, public column: number = -1) {}
+	constructor(public offset = -1, public line = -1, public column = -1) {}
 	clone() {
-		return new Position(this.line, this.column);
+		return new Position(this.offset, this.line, this.column);
 	}
 }
 
@@ -138,12 +138,12 @@ function asciiCaselessMatch(s1: string, s2: string) {
 /** @see https://drafts.csswg.org/css-syntax/#tokenization */
 function tokenise(str: string, opts?: ParseOpts) {
 	const codepoints = preprocess(str);
-	let i = -1;
+	let offset = -1;
 	const tokens: CSSParserToken[] = [];
 	let code: number;
 
 	// Line number information.
-	const position = new Position(1, 1);
+	const position = new Position(0, 1, 1);
 	// The only use of lastLineLength is in reconsume().
 	let lastLineLength = 0;
 	function incrLineno() {
@@ -164,18 +164,20 @@ function tokenise(str: string, opts?: ParseOpts) {
 		if (num > 3) {
 			throw "Spec Error: no more than three codepoints of lookahead.";
 		}
-		return codepoint(i + num);
+		return codepoint(offset + num);
 	}
 	function consume(num: number = 1) {
-		i += num;
-		code = codepoint(i);
+		offset += num;
+		position.offset = offset;
+		code = codepoint(offset);
 		if (newline(code)) incrLineno();
 		else position.column += num;
 		//console.log('Consume '+i+' '+String.fromCharCode(code) + ' 0x' + code.toString(16));
 		return true;
 	}
 	function reconsume() {
-		i -= 1;
+		offset -= 1;
+		position.offset = offset;
 		if (newline(code)) {
 			position.line -= 1;
 			position.column = lastLineLength;
@@ -193,9 +195,9 @@ function tokenise(str: string, opts?: ParseOpts) {
 	function donothing() {}
 	function parseerror() {
 		if (code == null) {
-			console.log("Parse error at index " + i + ", processing codepoint undefined.");
+			console.log("Parse error at index " + offset + ", processing codepoint undefined.");
 		} else {
-			console.log("Parse error at index " + i + ", processing codepoint 0x" + code.toString(16) + ".");
+			console.log("Parse error at index " + offset + ", processing codepoint 0x" + code.toString(16) + ".");
 		}
 		return true;
 	}
@@ -1135,7 +1137,7 @@ class TokenStream {
 	constructor(public tokens: CSSParserToken[]) {
 		// Assume that tokens is an array.
 		this.index = 0;
-		this.pos = new Position(0, 0);
+		this.pos = new Position(0, 1, 1);
 		this.markedIndexes = [];
 	}
 	nextToken() {
@@ -1505,7 +1507,7 @@ interface ParseOpts {
 /** @see https://drafts.csswg.org/css-syntax/#parse-a-stylesheet */
 function parseAStylesheet(s: string | TokenStream, opts?: ParseOpts) {
 	s = normalizeInput(s, opts);
-	const sheet = new Stylesheet(opts?.filename, dbg(new Position(0, 0)));
+	const sheet = new Stylesheet(opts?.filename, dbg(s.pos.clone()));
 	sheet.rules = consumeAStylesheetsContents(s);
 	sheet.debug.to = s.pos.clone();
 	return sheet;
