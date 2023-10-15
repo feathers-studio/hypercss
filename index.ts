@@ -1497,6 +1497,7 @@ function normalizeInput(input: string | TokenStream | CSSParserToken[], opts?: P
 }
 
 interface ParseOpts {
+	filename?: string;
 	/** @see https://drafts.csswg.org/css-syntax/#consume-token */
 	unicodeRangesAllowed?: boolean;
 }
@@ -1504,7 +1505,7 @@ interface ParseOpts {
 /** @see https://drafts.csswg.org/css-syntax/#parse-a-stylesheet */
 function parseAStylesheet(s: string | TokenStream, opts?: ParseOpts) {
 	s = normalizeInput(s, opts);
-	const sheet = new Stylesheet(dbg(new Position(0, 0)));
+	const sheet = new Stylesheet(opts?.filename, dbg(new Position(0, 0)));
 	sheet.rules = consumeAStylesheetsContents(s);
 	sheet.debug.to = s.pos.clone();
 	return sheet;
@@ -1589,8 +1590,8 @@ class CSSParserRule<Type extends string = string> {
 /** @see https://drafts.csswg.org/css-syntax/#css-stylesheet */
 class Stylesheet extends CSSParserRule {
 	public rules: CSSParserRule[] = [];
-	constructor(debug?: Debug) {
-		super("STYLESHEET", "Stylesheet", debug);
+	constructor(name: string = "<anonymous>", debug?: Debug) {
+		super("STYLESHEET", name, debug);
 	}
 	toJSON() {
 		return {
