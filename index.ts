@@ -346,7 +346,7 @@ function tokenise(str: string, opts?: ParseOpts) {
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-numeric-token */
 	function consumeANumericToken(from: Position) {
-		const { value, isInteger, sign } = consumeANumber();
+		const { value, type, sign } = consumeANumber();
 		if (wouldStartAnIdentifier(next(1), next(2), next(3))) {
 			const unit = consumeAName();
 			const to = position.clone();
@@ -357,7 +357,7 @@ function tokenise(str: string, opts?: ParseOpts) {
 			return new PercentageToken(value, sign, dbg(from, to));
 		} else {
 			const to = position.clone();
-			return new NumberToken(value, isInteger, sign, dbg(from, to));
+			return new NumberToken(value, type, sign, dbg(from, to));
 		}
 	}
 
@@ -564,7 +564,7 @@ function tokenise(str: string, opts?: ParseOpts) {
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-number */
 	function consumeANumber() {
-		let isInteger = true;
+		let type: NumberToken["type"] = "integer";
 		let sign;
 		let numberPart = "";
 		let exponentPart = "";
@@ -584,7 +584,7 @@ function tokenise(str: string, opts?: ParseOpts) {
 				consume();
 				numberPart += String.fromCodePoint(code);
 			}
-			isInteger = false;
+			type = "number";
 		}
 		const [c1, c2, c3] = [next(1), next(2), next(3)];
 		const eDigit = (c1 == 0x45 || c1 == 0x65) && digit(c2);
@@ -599,12 +599,12 @@ function tokenise(str: string, opts?: ParseOpts) {
 				consume();
 				exponentPart += String.fromCodePoint(code);
 			}
-			isInteger = false;
+			type = "number";
 		}
 		let value = +numberPart;
 		if (exponentPart) value = value * Math.pow(10, +exponentPart);
 
-		return { value, isInteger, sign };
+		return { value, type, sign };
 	}
 
 	/** @see https://drafts.csswg.org/css-syntax/#consume-a-unicode-range-token */
@@ -668,17 +668,17 @@ function tokenise(str: string, opts?: ParseOpts) {
 class CSSParserToken {
 	public value: unknown;
 
-	constructor(public type: string, public debug: Debug = dbg()) {}
+	constructor(public kind: string, public debug: Debug = dbg()) {}
 
 	toJSON() {
 		return {
-			type: this.type,
+			kind: this.kind,
 			value: this.value,
 			debug: this.debug,
 		};
 	}
 	toString() {
-		return this.type;
+		return this.kind;
 	}
 	toSource(): string {
 		throw new TypeError("Not implemented.");
@@ -915,7 +915,7 @@ class HashToken extends CSSParserToken {
 	}
 	toJSON() {
 		return {
-			type: this.type,
+			kind: this.kind,
 			value: this.value,
 			isIdent: this.isIdent,
 			debug: this.debug,
@@ -956,19 +956,19 @@ class URLToken extends CSSParserToken {
 }
 
 class NumberToken extends CSSParserToken {
-	constructor(public value: number, public isInteger: boolean, public sign?: string, debug?: Debug) {
+	constructor(public value: number, public type: "integer" | "number", public sign?: string, debug?: Debug) {
 		super("NUMBER", debug);
 	}
 	toString() {
-		const name = this.isInteger ? "INT" : "NUMBER";
+		const name = this.type === "integer" ? "INT" : "NUMBER";
 		const sign = this.sign == "+" ? "+" : "";
 		return `${name}(${sign}${this.value})`;
 	}
 	toJSON() {
 		return {
-			type: this.type,
+			kind: this.kind,
 			value: this.value,
-			isInteger: this.isInteger,
+			type: this.type,
 			sign: this.sign,
 			debug: this.debug,
 		};
@@ -988,7 +988,7 @@ class PercentageToken extends CSSParserToken {
 	}
 	toJSON() {
 		return {
-			type: this.type,
+			kind: this.kind,
 			value: this.value,
 			sign: this.sign,
 			debug: this.debug,
@@ -1009,7 +1009,7 @@ class DimensionToken extends CSSParserToken {
 	}
 	toJSON() {
 		return {
-			type: this.type,
+			kind: this.kind,
 			value: this.value,
 			unit: this.unit,
 			debug: this.debug,
@@ -1463,24 +1463,24 @@ function isValidInContext(construct: TopLevel, context: unknown) {
 	// Trivial validator, without any special CSS knowledge.
 
 	// All at-rules are valid, who cares.
-	if (construct.type == "AT-RULE") return true;
+	if (construct.kind == "AT-RULE") return true;
 
 	// Exclude qualified rules that ended up with a semicolon
 	// in their prelude.
 	// (Can only happen at the top level of a stylesheet.)
-	if (construct.type == "QUALIFIED-RULE") {
+	if (construct.kind == "QUALIFIED-RULE") {
 		for (const val of construct.prelude) {
-			if (val.type == "SEMICOLON") return false;
+			if (val.kind == "SEMICOLON") return false;
 		}
 		return true;
 	}
 
 	// Exclude properties that ended up with a {}-block
 	// in their value, unless they're custom.
-	if (construct.type == "DECLARATION") {
+	if (construct.kind == "DECLARATION") {
 		if (construct.name.slice(0, 2) == "--") return true;
 		for (const val of construct.value ?? []) {
-			if (val.type == "BLOCK" && (val as SimpleBlock).name == "{") return false;
+			if (val.kind == "BLOCK" && (val as SimpleBlock).name == "{") return false;
 		}
 		return true;
 	}
@@ -1579,8 +1579,8 @@ function parseACommaSeparatedListOfComponentValues(s: TokenStream, opts?: ParseO
 	return groups;
 }
 
-class CSSParserRule<Type extends string = string> {
-	constructor(public type: Type, public name: string, public debug: Debug = dbg()) {}
+class CSSParserRule<Kind extends string = string> {
+	constructor(public kind: Kind, public name: string, public debug: Debug = dbg()) {}
 	toSource(ident: number = 0) {
 		return "".repeat(ident);
 	}
@@ -1597,7 +1597,7 @@ class Stylesheet extends CSSParserRule {
 	}
 	toJSON() {
 		return {
-			type: this.type,
+			kind: this.kind,
 			rules: this.rules,
 			debug: this.debug,
 		};
@@ -1621,7 +1621,7 @@ class AtRule extends CSSParserRule<"AT-RULE"> {
 	toJSON() {
 		return {
 			debug: this.debug,
-			type: this.type,
+			kind: this.kind,
 			name: this.name,
 			prelude: this.prelude,
 			declarations: this.declarations,
@@ -1658,7 +1658,7 @@ class QualifiedRule extends CSSParserRule<"QUALIFIED-RULE"> {
 	toJSON() {
 		return {
 			debug: this.debug,
-			type: this.type,
+			kind: this.kind,
 			prelude: this.prelude,
 			declarations: this.declarations,
 			rules: this.rules,
@@ -1694,7 +1694,7 @@ class Declaration extends CSSParserRule<"DECLARATION"> {
 	}
 	toJSON() {
 		return {
-			type: this.type,
+			kind: this.kind,
 			name: this.name,
 			value: this.value,
 			important: this.important,
@@ -1722,7 +1722,7 @@ class SimpleBlock extends CSSParserRule {
 	}
 	toJSON() {
 		return {
-			type: this.type,
+			kind: this.kind,
 			name: this.name,
 			value: this.value,
 			debug: this.debug,
@@ -1742,7 +1742,7 @@ class Func extends CSSParserRule {
 	}
 	toJSON() {
 		return {
-			type: this.type,
+			kind: this.kind,
 			name: this.name,
 			value: this.value,
 			debug: this.debug,
