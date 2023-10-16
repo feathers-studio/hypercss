@@ -1,6 +1,6 @@
 {
 	"name": "@hyperactive/css",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Standards-based CSS parser in TypeScript, based on the CSS Syntax spec.",
 	"author": "Muthu Kumar <@MKRhere> (https://mkr.pw)",
 	"main": "index.ts",
